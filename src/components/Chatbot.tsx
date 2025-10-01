@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Bot, X, Minimize2 } from 'lucide-react';
-import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Card } from './ui/card';
 import { matchQuestion, createMessage, quickReplies, type ChatMessage } from '../data/chatbotData';
