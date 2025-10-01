@@ -155,7 +155,7 @@ function DataQualityPage() {
           <CardDescription>ปัญหาที่ถูกติดธงจะถูกแสดงเพื่อความโปร่งใสและการตรวจสอบย้อนหลัง</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="max-h-96 overflow-y-auto">
+          <div className="h-80 overflow-y-auto pr-2">
             <Table
               columns={["รหัสการเดินทาง", "เรือ", "วันที่เริ่ม", "คะแนน DQ", "ปัญหา"]}
               rows={mockTrips.map(t => [
