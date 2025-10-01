@@ -9,6 +9,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from ".
 import { Switch } from "./components/ui/switch";
 import { Label } from "./components/ui/label";
 import { Bell, Download, Map, Database, BarChart2, Settings, Bot, Activity, ShieldCheck, Ruler, Layers, Zap } from "lucide-react";
+import { Chatbot } from "./components/Chatbot";
 
 // Import professional Thai fisheries data
 import { 
@@ -659,6 +660,9 @@ export default function App() {
           {NAV.find(n => n.id===active)?.comp}
         </main>
       </div>
+      
+      {/* Floating AI Chatbot */}
+      <Chatbot />
     </div>
   );
 }
