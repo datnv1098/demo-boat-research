@@ -1,0 +1,141 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Create deployment package
+      run: |
+        zip -r deploy.zip dist/ package.json package-lock.json
+        
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.EC2_PORT }}
+        script: |
+          # Tạo thư mục cho app
+          sudo mkdir -p /var/www/fisheries-demo
+          cd /var/www/fisheries-demo
+          
+          # Backup bản cũ nếu có
+          sudo rm -rf backup
+          sudo mkdir -p backup
+          sudo mv dist backup/ 2>/dev/null || true
+          
+          # Cài đặt Node.js nếu chưa có
+          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          
+          # Cài đặt nginx nếu chưa có
+          sudo apt-get update
+          sudo apt-get install -y nginx
+          
+          # Cài đặt PM2 để quản lý process
+          sudo npm install -g pm2
+          
+    - name: Upload and extract files
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.EC2_PORT }}
+        source: "deploy.zip"
+        target: "/tmp/"
+        
+    - name: Extract and configure
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: ${{ secrets.EC2_PORT }}
+        script: |
+          cd /var/www/fisheries-demo
+          sudo unzip -o /tmp/deploy.zip
+          sudo chown -R www-data:www-data /var/www/fisheries-demo
+          sudo chmod -R 755 /var/www/fisheries-demo
+          
+          # Tạo file serve.js để serve static files
+          sudo tee server.js > /dev/null <<EOF
+          const express = require('express');
+          const path = require('path');
+          const app = express();
+          const port = process.env.PORT || 3000;
+          
+          // Serve static files từ thư mục dist
+          app.use(express.static(path.join(__dirname, 'dist')));
+          
+          // Handle React Router (return index.html for all routes)
+          app.get('*', (req, res) => {
+            res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+          });
+          
+          app.listen(port, () => {
+            console.log(\`Server running on port \${port}\`);
+          });
+          EOF
+          
+          # Cài đặt express
+          sudo npm install express
+          
+          # Khởi động app với PM2
+          sudo pm2 delete fisheries-demo 2>/dev/null || true
+          sudo pm2 start server.js --name fisheries-demo
+          sudo pm2 save
+          sudo pm2 startup
+          
+          # Cấu hình Nginx
+          sudo tee /etc/nginx/sites-available/fisheries-demo > /dev/null <<EOF
+          server {
+              listen 80;
+              server_name your-domain.com;  # Thay bằng domain của bạn
+              
+              location / {
+                  proxy_pass http://localhost:3000;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade \$http_upgrade;
+                  proxy_set_header Connection 'upgrade';
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+                  proxy_cache_bypass \$http_upgrade;
+              }
+          }
+          EOF
+          
+          # Kích hoạt site
+          sudo ln -sf /etc/nginx/sites-available/fisheries-demo /etc/nginx/sites-enabled/
+          sudo nginx -t
+          sudo systemctl reload nginx
+          
+          # Đảm bảo các service khởi động cùng hệ thống
+          sudo systemctl enable nginx
+          
+          echo "Deployment completed successfully!"
