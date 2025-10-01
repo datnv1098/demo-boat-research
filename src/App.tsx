@@ -1,18 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area, RadarChart, PolarGrid, PolarAngleAxis, Radar } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, AreaChart, Area } from "recharts";
 import { Slider } from "./components/ui/slider";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
-import { Textarea } from "./components/ui/textarea";
 import { Badge } from "./components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./components/ui/select";
 import { Switch } from "./components/ui/switch";
-import { Checkbox } from "./components/ui/checkbox";
 import { Label } from "./components/ui/label";
-import { Tabs as HTabs } from "@radix-ui/react-tabs";
-import { AlertTriangle, Bell, Download, Map, Database, BarChart2, Settings, Bot, Activity, ShieldCheck, Ruler, FileText, Layers, Zap } from "lucide-react";
+import { Bell, Download, Map, Database, BarChart2, Settings, Bot, Activity, ShieldCheck, Ruler, Layers, Zap } from "lucide-react";
 
 // Import professional Thai fisheries data
 import { 
@@ -23,9 +19,7 @@ import {
   mockForecastData, 
   mockAlerts,
   SPECIES_INFO,
-  FISHING_AREAS,
-  VESSEL_STATISTICS,
-  ECONOMIC_DATA 
+  FISHING_AREAS
 } from "./data/mockData";
 
 // ------------------------------------------------------------
