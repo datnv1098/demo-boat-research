@@ -155,16 +155,18 @@ function DataQualityPage() {
           <CardDescription>ปัญหาที่ถูกติดธงจะถูกแสดงเพื่อความโปร่งใสและการตรวจสอบย้อนหลัง</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table
-            columns={["รหัสการเดินทาง", "เรือ", "วันที่เริ่ม", "คะแนน DQ", "ปัญหา"]}
-            rows={mockTrips.map(t => [
-              t.tripId,
-              t.vessel,
-              t.startDate,
-              <Badge key="dq" className="bg-blue-100 text-blue-700">{t.dqScore}</Badge>,
-              <div className="flex flex-wrap gap-2" key="issues">{t.issues.length ? t.issues.map((i,ix)=> <Badge key={ix} className="bg-red-100 text-red-700">{i}</Badge>) : <Badge className="bg-gray-100 text-gray-700">ไม่มี</Badge>}</div>
-            ])}
-          />
+          <div className="max-h-96 overflow-y-auto">
+            <Table
+              columns={["รหัสการเดินทาง", "เรือ", "วันที่เริ่ม", "คะแนน DQ", "ปัญหา"]}
+              rows={mockTrips.map(t => [
+                t.tripId,
+                t.vessel,
+                t.startDate,
+                <Badge key="dq" className="bg-blue-100 text-blue-700">{t.dqScore}</Badge>,
+                <div className="flex flex-wrap gap-2" key="issues">{t.issues.length ? t.issues.map((i,ix)=> <Badge key={ix} className="bg-red-100 text-red-700">{i}</Badge>) : <Badge className="bg-gray-100 text-gray-700">ไม่มี</Badge>}</div>
+              ])}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>
