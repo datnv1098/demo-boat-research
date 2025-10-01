@@ -14,7 +14,7 @@ import { Label } from "./components/ui/label";
 import { Tabs as HTabs } from "@radix-ui/react-tabs";
 import { AlertTriangle, Bell, Download, Map, Database, BarChart2, Settings, Bot, Activity, ShieldCheck, Ruler, FileText, Layers, Zap } from "lucide-react";
 
-// Import professional Vietnamese fisheries data
+// Import professional Thai fisheries data
 import { 
   mockTrips, 
   mockCPUEData, 
@@ -29,8 +29,8 @@ import {
 } from "./data/mockData";
 
 // ------------------------------------------------------------
-// Fisheries Analytics Demo – Vietnam Waters
-// Professional fisheries management system with realistic data
+// Thai Fisheries Analytics Demo
+// Professional fisheries management system with realistic Thai data
 // Tech: React + TypeScript + Vite + TailwindCSS + shadcn/ui + Recharts
 // ------------------------------------------------------------
 
@@ -41,8 +41,8 @@ const mockHotspotGrid = Array.from({ length: 8 }).map((_, r) =>
     c,
     density: Math.round(10 + Math.random() * 90),
     coordinates: { 
-      lat: 8 + (r / 8) * 14, // Vietnam's latitude range
-      lon: 104 + (c / 12) * 6 // Vietnam's longitude range
+      lat: 6 + (r / 8) * 8, // Thailand's latitude range
+      lon: 95 + (c / 12) * 8 // Thailand's longitude range
     }
   }))
 );
@@ -74,13 +74,6 @@ const thaiAPIEndpoints = [
   { method: "POST", path: "/api/v1/scenario-simulation", desc: "รันการจำลองสถานการณ์" },
   { method: "GET", path: "/api/v1/closure-areas", desc: "รายการพื้นที่ปิดตามเวลา" },
 ];
-
-const riskPalette = {
-  Normal: "bg-emerald-100 text-emerald-700",
-  Watch: "bg-amber-100 text-amber-800",
-  Risk: "bg-orange-100 text-orange-800",
-  High: "bg-red-100 text-red-700",
-};
 
 function Header({ title, desc, icon }: { title: string; desc?: string; icon?: React.ReactNode }) {
   return (
@@ -360,13 +353,15 @@ function HotspotMapPage() {
       <Card className="shadow-sm">
         <CardHeader className="pb-2"><CardTitle>กริดความหนาแน่น – {month}</CardTitle><CardDescription>เซลล์ที่เข้มกว่าแสดงความหนาแน่นมาตรฐานที่สูงกว่า</CardDescription></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-12 gap-1">
-            {mockHotspotGrid.flat().map((cell, idx) => (
-              <div key={idx} className="h-8 rounded" style={{ backgroundColor: `hsl(${200 - cell.density * 1.5}deg 75% ${85 - cell.density * 0.6}% )` }} title={`เซลล์ (${cell.r},${cell.c}) – ${cell.density}%`}></div>
-            ))}
-          </div>
-          <div className="mt-4 text-xs text-muted-foreground">
-            ข้อมูล: พื้นที่อ่าวไทยและทะเลอันดามัน (จำลอง)
+          <div className="h-80">
+            <div className="grid grid-cols-12 gap-1">
+              {mockHotspotGrid.flat().map((cell, idx) => (
+                <div key={idx} className="h-8 rounded" style={{ backgroundColor: `hsl(${200 - cell.density * 1.5}deg 75% ${85 - cell.density * 0.6}% )` }} title={`เซลล์ (${cell.r},${cell.c}) – ${cell.density}%`}></div>
+              ))}
+            </div>
+            <div className="mt-4 text-xs text-muted-foreground">
+              ข้อมูล: พื้นที่อ่าวไทยและทะเลอันดามัน (จำลอง)
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -386,7 +381,7 @@ function ForecastAlertsPage() {
         <Stat label="อัปเดตโมเดลล่าสุด" value="28 ก.ย. 2568" />
       </div>
       <Card className="shadow-sm mb-6">
-        <CardHeader className="pb-2"><CardTitle>พยากรณ์ CPUE (สัปดาหข้างหน้า)</CardTitle></CardHeader>
+        <CardHeader className="pb-2"><CardTitle>พยากรณ์ CPUE (สัปดาห์ข้างหน้า)</CardTitle></CardHeader>
         <CardContent>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -405,15 +400,17 @@ function ForecastAlertsPage() {
       <Card className="shadow-sm">
         <CardHeader className="pb-2"><CardTitle>การแจ้งเตือน</CardTitle></CardHeader>
         <CardContent>
-          <Table
-            columns={["ประเภท", "ระดับ", "พื้นที่", "ข้อความ"]}
-            rows={mockAlerts.map(a => [
-              a.type, 
-              <Badge key="lv" className={a.level === "สูง" || a.level === "สูงมาก" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}>{a.level}</Badge>, 
-              a.area, 
-              a.message
-            ])}
-          />
+          <div className="h-80 overflow-y-auto pr-2">
+            <Table
+              columns={["ประเภท", "ระดับ", "พื้นที่", "ข้อความ"]}
+              rows={mockAlerts.map(a => [
+                a.type, 
+                <Badge key="lv" className={a.level === "สูง" || a.level === "สูงมาก" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}>{a.level}</Badge>, 
+                a.area, 
+                a.message
+              ])}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -558,20 +555,22 @@ function ReportsPage() {
       <Card className="shadow-sm">
         <CardHeader className="pb-2"><CardTitle>ตารางเวลารายงาน</CardTitle></CardHeader>
         <CardContent>
-          <Table
-            columns={["รายงาน", "รูปแบบ", "รันครั้งต่อไป", "การกระทำ"]}
-            rows={thaiReportSchedule.map(r => [
-              r.name, 
-              r.format, 
-              r.nextRun, 
-              <div className="flex gap-2" key={r.id}>
-                <Button className="h-8 px-3 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200">
-                  <Download className="h-3 w-3 mr-1"/>ทันที
-                </Button>
-                <Button className="h-8 px-3 text-xs bg-blue-600 text-white hover:bg-blue-700">รายละเอียด</Button>
-              </div>
-            ])}
-          />
+          <div className="h-80 overflow-y-auto pr-2">
+            <Table
+              columns={["รายงาน", "รูปแบบ", "รันครั้งต่อไป", "การกระทำ"]}
+              rows={thaiReportSchedule.map(r => [
+                r.name, 
+                r.format, 
+                r.nextRun, 
+                <div className="flex gap-2" key={r.id}>
+                  <Button className="h-8 px-3 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200">
+                    <Download className="h-3 w-3 mr-1"/>ทันที
+                  </Button>
+                  <Button className="h-8 px-3 text-xs bg-blue-600 text-white hover:bg-blue-700">รายละเอียด</Button>
+                </div>
+              ])}
+            />
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -586,18 +585,22 @@ function DataMartAPIPage() {
         <Card className="shadow-sm">
           <CardHeader className="pb-2"><CardTitle>โครงสร้างฐานข้อมูล</CardTitle></CardHeader>
           <CardContent>
-            <Table columns={["ตาราง", "คอลัมน์", "ประเภท", "คำอธิบาย"]} rows={thaiFisheriesSchema.map(s => [s.table, s.column, s.type, s.desc])} />
+            <div className="h-80 overflow-y-auto pr-2">
+              <Table columns={["ตาราง", "คอลัมน์", "ประเภท", "คำอธิบาย"]} rows={thaiFisheriesSchema.map(s => [s.table, s.column, s.type, s.desc])} />
+            </div>
           </CardContent>
         </Card>
         <Card className="shadow-sm">
           <CardHeader className="pb-2"><CardTitle>จุดปลาย API</CardTitle></CardHeader>
           <CardContent>
-            <Table columns={["เมธอด", "เส้นทาง", "คำอธิบาย"]} rows={thaiAPIEndpoints.map(a => [a.method, <code key={a.path} className="text-xs">{a.path}</code>, a.desc])} />
-            <div className="mt-4">
-              <Label>กุญแจ API (จำลอง)</Label>
-              <div className="mt-1 flex gap-2">
-                <Input value="th_fisheries_demo_key_67890" readOnly className="font-mono"/>
-                <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200">คัดลอก</Button>
+            <div className="h-80 overflow-y-auto pr-2">
+              <Table columns={["เมธอด", "เส้นทาง", "คำอธิบาย"]} rows={thaiAPIEndpoints.map(a => [a.method, <code key={a.path} className="text-xs">{a.path}</code>, a.desc])} />
+              <div className="mt-4">
+                <Label>กุญแจ API (จำลอง)</Label>
+                <div className="mt-1 flex gap-2">
+                  <Input value="th_fisheries_demo_key_67890" readOnly className="font-mono"/>
+                  <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200">คัดลอก</Button>
+                </div>
               </div>
             </div>
           </CardContent>
