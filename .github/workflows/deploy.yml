@@ -3,8 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+  workflow_dispatch:  # Cho phép trigger thủ công
 
 jobs:
   deploy:
@@ -28,114 +27,185 @@ jobs:
       
     - name: Create deployment package
       run: |
-        zip -r deploy.zip dist/ package.json package-lock.json
+        # Tạo server.js cho production
+        cat > server.js << 'EOF'
+        const express = require('express');
+        const path = require('path');
+        const app = express();
+        const port = process.env.PORT || 3000;
+
+        // Serve static files
+        app.use(express.static(path.join(__dirname, 'dist')));
+
+        // Handle React Router
+        app.get('*', (req, res) => {
+          res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+        });
+
+        app.listen(port, () => {
+          console.log(`Server running on port ${port}`);
+        });
+        EOF
         
-    - name: Deploy to EC2
-      uses: appleboy/ssh-action@v0.1.5
+        # Tạo package.json cho production
+        cat > package-prod.json << 'EOF'
+        {
+          "name": "fisheries-demo",
+          "version": "1.0.0",
+          "main": "server.js",
+          "scripts": {
+            "start": "node server.js"
+          },
+          "dependencies": {
+            "express": "^4.18.2"
+          }
+        }
+        EOF
+        
+        # Tạo ecosystem config cho PM2
+        cat > ecosystem.config.js << 'EOF'
+        module.exports = {
+          apps: [{
+            name: 'fisheries-demo',
+            script: './server.js',
+            instances: 1,
+            autorestart: true,
+            watch: false,
+            max_memory_restart: '1G',
+            env: {
+              NODE_ENV: 'production',
+              PORT: 3000
+            }
+          }]
+        };
+        EOF
+        
+        # Package everything
+        zip -r deploy.zip dist/ server.js package-prod.json ecosystem.config.js
+        
+    - name: Test SSH Connection
+      uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.EC2_PORT }}
+        port: ${{ secrets.EC2_PORT || 22 }}
+        timeout: 30s
+        command_timeout: 10m
         script: |
-          # Tạo thư mục cho app
-          sudo mkdir -p /var/www/fisheries-demo
-          cd /var/www/fisheries-demo
+          echo "SSH connection successful!"
+          whoami
+          pwd
           
-          # Backup bản cũ nếu có
-          sudo rm -rf backup
-          sudo mkdir -p backup
-          sudo mv dist backup/ 2>/dev/null || true
-          
-          # Cài đặt Node.js nếu chưa có
-          curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          
-          # Cài đặt nginx nếu chưa có
-          sudo apt-get update
-          sudo apt-get install -y nginx
-          
-          # Cài đặt PM2 để quản lý process
-          sudo npm install -g pm2
-          
-    - name: Upload and extract files
-      uses: appleboy/scp-action@v0.1.4
+    - name: Upload deployment package
+      uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.EC2_PORT }}
+        port: ${{ secrets.EC2_PORT || 22 }}
+        timeout: 30s
+        command_timeout: 10m
         source: "deploy.zip"
         target: "/tmp/"
         
-    - name: Extract and configure
-      uses: appleboy/ssh-action@v0.1.5
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.EC2_PORT }}
+        port: ${{ secrets.EC2_PORT || 22 }}
         script: |
+          set -e  # Exit on error
+          
+          echo "=== Starting Deployment ==="
+          
+          # Setup directories
+          sudo mkdir -p /var/www/fisheries-demo
           cd /var/www/fisheries-demo
+          
+          # Backup existing deployment
+          if [ -d "dist" ]; then
+            echo "Backing up existing deployment..."
+            sudo rm -rf dist.backup
+            sudo mv dist dist.backup
+          fi
+          
+          # Extract new deployment
+          echo "Extracting new deployment..."
           sudo unzip -o /tmp/deploy.zip
-          sudo chown -R www-data:www-data /var/www/fisheries-demo
+          sudo mv package-prod.json package.json
+          
+          # Install Node.js if not present
+          if ! command -v node &> /dev/null; then
+            echo "Installing Node.js..."
+            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          fi
+          
+          # Install PM2 if not present
+          if ! command -v pm2 &> /dev/null; then
+            echo "Installing PM2..."
+            sudo npm install -g pm2
+          fi
+          
+          # Install dependencies
+          echo "Installing dependencies..."
+          sudo npm install --production
+          
+          # Set permissions
+          sudo chown -R $USER:$USER /var/www/fisheries-demo
           sudo chmod -R 755 /var/www/fisheries-demo
           
-          # Tạo file serve.js để serve static files
-          sudo tee server.js > /dev/null <<EOF
-          const express = require('express');
-          const path = require('path');
-          const app = express();
-          const port = process.env.PORT || 3000;
+          # Restart application with PM2
+          echo "Restarting application..."
+          pm2 delete fisheries-demo 2>/dev/null || true
+          pm2 start ecosystem.config.js
+          pm2 save
           
-          // Serve static files từ thư mục dist
-          app.use(express.static(path.join(__dirname, 'dist')));
+          # Setup PM2 startup
+          sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp /home/$USER
           
-          // Handle React Router (return index.html for all routes)
-          app.get('*', (req, res) => {
-            res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-          });
+          # Install and configure Nginx if not present
+          if ! command -v nginx &> /dev/null; then
+            echo "Installing Nginx..."
+            sudo apt-get update
+            sudo apt-get install -y nginx
+          fi
           
-          app.listen(port, () => {
-            console.log(\`Server running on port \${port}\`);
-          });
-          EOF
-          
-          # Cài đặt express
-          sudo npm install express
-          
-          # Khởi động app với PM2
-          sudo pm2 delete fisheries-demo 2>/dev/null || true
-          sudo pm2 start server.js --name fisheries-demo
-          sudo pm2 save
-          sudo pm2 startup
-          
-          # Cấu hình Nginx
-          sudo tee /etc/nginx/sites-available/fisheries-demo > /dev/null <<EOF
+          # Configure Nginx
+          echo "Configuring Nginx..."
+          sudo tee /etc/nginx/sites-available/fisheries-demo > /dev/null << 'NGINX_EOF'
           server {
               listen 80;
-              server_name your-domain.com;  # Thay bằng domain của bạn
+              server_name _;
               
               location / {
                   proxy_pass http://localhost:3000;
                   proxy_http_version 1.1;
-                  proxy_set_header Upgrade \$http_upgrade;
+                  proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection 'upgrade';
-                  proxy_set_header Host \$host;
-                  proxy_set_header X-Real-IP \$remote_addr;
-                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-                  proxy_set_header X-Forwarded-Proto \$scheme;
-                  proxy_cache_bypass \$http_upgrade;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+                  proxy_cache_bypass $http_upgrade;
               }
           }
-          EOF
+          NGINX_EOF
           
-          # Kích hoạt site
+          # Enable site
           sudo ln -sf /etc/nginx/sites-available/fisheries-demo /etc/nginx/sites-enabled/
-          sudo nginx -t
-          sudo systemctl reload nginx
+          sudo rm -f /etc/nginx/sites-enabled/default
           
-          # Đảm bảo các service khởi động cùng hệ thống
+          # Test and reload Nginx
+          sudo nginx -t && sudo systemctl reload nginx
           sudo systemctl enable nginx
           
-          echo "Deployment completed successfully!"
+          # Cleanup
+          sudo rm -f /tmp/deploy.zip
+          
+          echo "=== Deployment completed successfully! ==="
+          echo "Application is running at: http://${{ secrets.EC2_HOST }}"
+          pm2 status
