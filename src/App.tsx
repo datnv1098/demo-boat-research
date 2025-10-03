@@ -131,10 +131,10 @@ function DataQualityPage() {
     <div>
       <Header title="คุณภาพข้อมูล & ควบคุมคุณภาพ" desc="ตรวจสอบข้อมูลการเดินทางประมงที่อัปโหลดด้วยกฎและสถิติ: พิกัด ระยะเวลา ความเร็ว ความลึก การซ้ำ; คำนวณดัชนีคุณภาพต่อการลาก/การเดินทาง" icon={<ShieldCheck className="h-6 w-6"/>} />
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <Stat label="การเดินทางที่อัปโหลด" value={mockTrips.length} hint="ในช่วงนี้" />
+        <Stat label="จำนวนครั้งที่ออกเก็บข้อมูล" value={mockTrips.length} hint="ในช่วงนี้" />
         <Stat label="ดัชนีคุณภาพเฉลี่ย" value={`${Math.round(mockTrips.reduce((a,b)=>a+b.dqScore,0)/mockTrips.length)} / 100`} />
         <Stat label="ปัญหาที่ตรวจพบ" value={mockTrips.reduce((a,b)=>a+(b.issues?.length||0),0)} hint="ทุกการเดินทาง" />
-        <Stat label="เรือที่ไม่ซ้ำ" value={new Set(mockTrips.map(t=>t.vessel)).size} />
+        <Stat label="จำนวนเรือทั้งหมด" value={new Set(mockTrips.map(t=>t.vessel)).size} />
       </div>
 
       <Card className="shadow-sm">
@@ -271,7 +271,7 @@ function LengthBiologyPage() {
                 <Tooltip />
                 <Legend />
                 <Bar dataKey="Male" name="ตัวผู้" fill="#3b82f6" stackId="a" />
-                <Bar dataKey="Female" name="ตัวเมี้ยง" fill="#ec4899" stackId="a" />
+                <Bar dataKey="Female" name="ตัวเมีย" fill="#ec4899" stackId="a" />
                 <Bar dataKey="Unsexed" name="ไม่ระบุ" fill="#6b7280" stackId="a" />
               </BarChart>
             </ResponsiveContainer>
