@@ -595,7 +595,7 @@ function WaterQualityPage() {
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b pb-4 mb-6 z-10">
         <Header title="ตรวจสอบคุณภาพน้ำ" desc="ระบบติดตามคุณภาพน้ำแบบเรียลไทม์ พร้อมการแจ้งเตือนและการประเมิน Water Quality Index สำหรับพื้นที่ประมง" icon={<Droplets className="h-6 w-6"/>} />
         
-        <div className="w-80">
+        <div className="w-80" style={{marginLeft: 5}}>
           <Label>สถานีตรวจวัด</Label>
           <Select defaultValue={selectedStation} onValueChange={setSelectedStation}>
             <SelectTrigger><SelectValue /></SelectTrigger>
