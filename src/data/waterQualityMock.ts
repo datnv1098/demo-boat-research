@@ -378,13 +378,41 @@ const generateRealisticReading = (
   const seasonFactor = Math.sin((dayIndex / 365) * 2 * Math.PI);
   const dailyFactor = Math.sin((hour / 24) * 2 * Math.PI);
 
-  // สร้างค่าสุ่มที่สมจริง
-  const pH = basePH + (seasonFactor * 0.3) + (dailyFactor * 0.1) + (Math.random() - 0.5) * 0.2;
-  const dissolvedOxygen = baseDO + (seasonFactor * 1.0) + (dailyFactor * 0.5) + (Math.random() - 0.5) * 0.8;
-  const temperature = baseTemp + (seasonFactor * 3.0) + (dailyFactor * 2.0) + (Math.random() - 0.5) * 1.0;
-  const salinity = baseSalinity + (seasonFactor * 2.0) + (Math.random() - 0.5) * 1.0;
-  const turbidity = baseTurbidity + (seasonFactor * 5.0) + (Math.random() - 0.5) * 10.0;
-  const chlorophyl = baseChlorophyl + (seasonFactor * 10.0) + (Math.random() - 0.5) * 5.0;
+  // Enhanced variation for alert generation (Option 1)
+  let pH = basePH + (seasonFactor * 0.3) + (dailyFactor * 0.1) + (Math.random() - 0.5) * 0.8; // increased from 0.2
+  let dissolvedOxygen = baseDO + (seasonFactor * 1.0) + (dailyFactor * 0.5) + (Math.random() - 0.5) * 1.8; // increased from 0.8
+  let temperature = baseTemp + (seasonFactor * 3.0) + (dailyFactor * 2.0) + (Math.random() - 0.5) * 4.0; // increased from 1.0
+  let salinity = baseSalinity + (seasonFactor * 2.0) + (Math.random() - 0.5) * 2.5; // increased from 1.0
+  let turbidity = baseTurbidity + (seasonFactor * 5.0) + (Math.random() - 0.5) * 15.0; // increased from 10.0
+  let chlorophyl = baseChlorophyl + (seasonFactor * 10.0) + (Math.random() - 0.5) * 20.0; // increased from 5.0
+
+  // Force extreme values for alerts (Option 3) - 3% chance of pollution/extreme events
+  const forceExtreme = Math.random() < 0.03;
+  if (forceExtreme) {
+    const extremeType = Math.floor(Math.random() * 4);
+    switch (extremeType) {
+      case 0: // pH extreme
+        pH = Math.random() < 0.5 ? 6.0 + Math.random() * 0.4 : 9.1 + Math.random() * 0.5; // <6.4 or >9.1
+        break;
+      case 1: // Low oxygen
+        dissolvedOxygen = 1.5 + Math.random() * 2.0; // 1.5-3.5 mg/L
+        break;
+      case 2: // High temperature
+        temperature = 33.0 + Math.random() * 4.0; // 33-37°C
+        break;
+      case 3: // Algae bloom
+        chlorophyl = 55.0 + Math.random() * 45.0; // 55-100 mg/L
+        break;
+    }
+  }
+
+  // Additional chance for multiple parameter pollution event (1% chance)
+  if (Math.random() < 0.01) {
+    pH = 6.1 + Math.random() * 0.3; // Low pH
+    dissolvedOxygen = 2.0 + Math.random() * 1.5; // Low oxygen
+    temperature = 34.0 + Math.random() * 3.0; // High temp
+    chlorophyl = 60.0 + Math.random() * 30.0; // High chlorophyl
+  }
 
   // คำนวณค่าอื่นๆ ที่เกี่ยวข้อง
   const conductivity = salinity * 1.8 + 200 + (Math.random() - 0.5) * 50;

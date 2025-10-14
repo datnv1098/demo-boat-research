@@ -25,6 +25,7 @@ import {
   mockWaterQualityData,
   mockWaterQualityAlerts
 } from "./data/mockData";
+import { formatValidDate } from "./lib/utils";
 
 // ------------------------------------------------------------
 // Thai Fisheries Analytics Demo
@@ -763,7 +764,7 @@ function WaterQualityPage() {
 
         <Card className="shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-base">การแจ้งเตือนคุณภาพน้ำ</CardTitle></CardHeader>
-          <CardContent>
+          <CardContent className="p-2">
             <div className="h-[32rem] overflow-y-auto pr-2 p-5" style={{marginLeft: 10}}>
               <Table
                 columns={["ประเภท", "ระดับ", "สถานี", "ข้อความ", "เวลา"]}
@@ -774,12 +775,7 @@ function WaterQualityPage() {
                   </Badge>,
                   alert.stationName,
                   alert.messageThai,
-                  new Date(alert.timestamp).toLocaleTimeString('th-TH', { 
-                    hour: '2-digit', 
-                    minute: '2-digit',
-                    day: '2-digit',
-                    month: '2-digit'
-                  })
+                  formatValidDate(alert.timestamp)
                 ])}
               />
             </div>
