@@ -10,7 +10,6 @@ import {
   generateDataQualityScore,
   estimateFuelConsumption,
   parseFreqText,
-  sizeCodeToThai,
   translateToThai
 } from './excelParser';
 import type { Trip, CPUEData, LengthData, SpeciesInfo } from './mockData';

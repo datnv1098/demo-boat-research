@@ -225,11 +225,11 @@ export const sexToThai = (sex?: string): string => {
 };
 
 // ฟังก์ชันสร้างชื่อเรือภาษาไทย
-export const generateThaiVesselName = (vesselCode: string, index: number): string => {
-  const provinces = ['กท', 'ระย', 'ภก', 'ตรง', 'สข', 'ชบ', 'จบ', 'สต', 'ปข', 'รน'];
-  const prefix = provinces[index % provinces.length];
-  const number = 80000 + index;
-  return `${prefix}-${number}`;
+export const generateThaiVesselName = (_vesselCode: string, index: number): string => {
+  const prefixes = ['กท', 'ระย', 'ภก', 'ตรง', 'สข', 'สร', 'ปท', 'อุบ', 'นค', 'ขก'];
+  const numbers = [80000, 80001, 80002, 80003, 80004, 80005, 80006, 80007, 80008, 80009];
+  
+  return `${prefixes[index % prefixes.length]}-${numbers[index % numbers.length]}`;
 };
 
 // ฟังก์ชันกำหนดประเภทเรือจาก Link

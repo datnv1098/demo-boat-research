@@ -7,10 +7,19 @@ import {
   realLengthData, 
   realSpeciesInfo, 
   realWaterQualityData,
-  REAL_DATA_SUMMARY,
-  type WaterQuality 
+  REAL_DATA_SUMMARY
 } from './realData';
 import { translateToThai } from './excelParser';
+import { 
+  MONITORING_STATIONS,
+  mockWaterQualityData,
+  mockWaterQualityAlerts
+} from './waterQualityMock';
+import {
+  ProcessedWaterQuality,
+  WaterQualityAlert,
+  WaterMonitoringStation
+} from './waterMonitoring';
 
 export interface Trip {
   tripId: string;
@@ -401,11 +410,23 @@ export const generateScenarioData = () => {
 // รวมข้อมูลจริงจาก Excel + ข้อมูล mock เพิ่มเติม
 export const mockTrips = [...realTrips, ...generateTrips()]; // 22 trips จริง + 35 trips สร้าง = 57 trips รวม
 export const mockCPUEData = [...realCPUEData, ...generateCPUEData()]; // ข้อมูล CPUE ผสม
-export const mockLengthData = [...realLengthData, ...generateLengthData()]; // ข้อมูล Length ผสม
+export const mockLengthData = [...realLengthData, ...generateLengthData()]; // ข้อมูl Length ผสม
 export const mockSelectivityData = generateSelectivityData();
 export const mockForecastData = generateForecastData();
 export const mockAlerts = generateAlerts();
 export const mockScenarioData = generateScenarioData();
+
+// ส่งออกข้อมูล Water Quality Monitoring System
+export { 
+  MONITORING_STATIONS,
+  mockWaterQualityData,
+  mockWaterQualityAlerts
+} from './waterQualityMock';
+export type { 
+  ProcessedWaterQuality,
+  WaterQualityAlert,
+  WaterMonitoringStation
+} from './waterMonitoring';
 
 // ส่งออกข้อมูลจริงแยกต่างหาก
 export { 
@@ -463,7 +484,10 @@ export const COMPREHENSIVE_DATA_SUMMARY = {
     totalCPUERecords: mockCPUEData.length,
     totalLengthRecords: mockLengthData.length,
     totalSpecies: Object.keys(SPECIES_INFO).length,
-    waterQualityRecords: realWaterQualityData.length
+    waterQualityRecords: realWaterQualityData.length,
+    monitoringStations: MONITORING_STATIONS.length, // 5 สถานี
+    waterQualityDataPoints: mockWaterQualityData.length, // 30 วัน x 6 ครั้ง/วัน x 5 สถานี = 900 จุดข้อมูล
+    waterQualityAlerts: mockWaterQualityAlerts.length
   },
   
   // คุณภาพและความครอบคลุม

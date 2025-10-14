@@ -1,11 +1,18 @@
 {
-  "name": "fisheries-demo",
+  "name": "fisheries-analytics-demo",
   "version": "1.0.0",
+  "description": "Thai Fisheries Analytics Demo with Excel Data Integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2"
-  }
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "keywords": ["fisheries", "analytics", "thailand", "excel-integration", "thai-language"],
+  "author": "Fisheries Research Team",
+  "license": "MIT"
 }

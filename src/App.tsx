@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./com
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./components/ui/select";
 import { Switch } from "./components/ui/switch";
 import { Label } from "./components/ui/label";
-import { Bell, Download, Map, Database, BarChart2, Settings, Bot, Activity, ShieldCheck, Ruler, Layers, Zap } from "lucide-react";
+import { Bell, Download, Map, Database, BarChart2, Settings, Bot, Activity, ShieldCheck, Ruler, Layers, Zap, Droplets } from "lucide-react";
 import { Chatbot } from "./components/Chatbot";
 
 // Import professional Thai fisheries data
@@ -20,7 +20,10 @@ import {
   mockForecastData, 
   mockAlerts,
   SPECIES_INFO,
-  FISHING_AREAS
+  FISHING_AREAS,
+  MONITORING_STATIONS,
+  mockWaterQualityData,
+  mockWaterQualityAlerts
 } from "./data/mockData";
 
 // ------------------------------------------------------------
@@ -572,6 +575,227 @@ function ReportsPage() {
   );
 }
 
+function WaterQualityPage() {
+  const [selectedStation, setSelectedStation] = useState("WQ001");
+  
+  // Filter water quality data for selected station
+  const stationData = mockWaterQualityData.filter(d => d.stationId === selectedStation);
+  const latestData = stationData[stationData.length - 1];
+  
+  // Create time series data for charts
+  const pHData = stationData.slice(-24).map(d => ({ time: d.time, value: d.measurements.pH.value }));
+  const tempData = stationData.slice(-24).map(d => ({ time: d.time, value: d.measurements.temperature.value }));
+  const oxygenData = stationData.slice(-24).map(d => ({ time: d.time, value: d.measurements.dissolvedOxygen.value }));
+  
+  // Calculate averages
+  const avgWQI = Math.round(stationData.reduce((sum, d) => sum + d.waterQualityIndex, 0) / stationData.length);
+  const activeAlerts = mockWaterQualityAlerts.filter(a => !a.resolved).length;
+  
+  return (
+    <div className="h-[calc(100vh-7rem)] overflow-y-auto scroll-smooth" style={{paddingRight: 10}}>
+      <div className="sticky top-0 bg-background/95 backdrop-blur-sm border-b pb-4 mb-6 z-10">
+        <Header title="ตรวจสอบคุณภาพน้ำ" desc="ระบบติดตามคุณภาพน้ำแบบเรียลไทม์ พร้อมการแจ้งเตือนและการประเมิน Water Quality Index สำหรับพื้นที่ประมง" icon={<Droplets className="h-6 w-6"/>} />
+        
+        <div className="w-80">
+          <Label>สถานีตรวจวัด</Label>
+          <Select defaultValue={selectedStation} onValueChange={setSelectedStation}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {MONITORING_STATIONS.map(station => (
+                <SelectItem key={station.stationId} value={station.stationId}>
+                  {station.stationNameThai} ({station.province})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-4 px-1">
+        <div className="grid grid-cols-4 gap-3">
+          <Stat label="Water Quality Index" value={latestData ? latestData.waterQualityIndex : 0} hint="คะแนนคุณภาพน้ำโดยรวม" />
+          <Stat label="สถานะโดยรวม" value={latestData ? latestData.overallQualityThai : "ไม่มีข้อมูล"} />
+          <Stat label="การแจ้งเตือนที่ใช้งาน" value={activeAlerts} hint="การแจ้งเตือนทั้งหมด" />
+          <Stat label="สถานีตรวจวัดทั้งหมด" value={MONITORING_STATIONS.length} hint="สถานีที่ใช้งานได้" />
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2"><CardTitle className="text-base">ค่า pH (24 ชั่วโมงล่าสุด)</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-48">
+                <ResponsiveContainer width="110%" height="100%" style={{marginLeft: -45}}>
+                  <LineChart data={pHData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" fontSize={11} />
+                    <YAxis domain={[6.5, 9.0]} fontSize={11} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="value" name="pH" stroke="#10b981" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2"><CardTitle className="text-base">อุณหภูมิน้ำ (°C)</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-48">
+                <ResponsiveContainer width="110%" height="100%" style={{marginLeft: -45}}>
+                  <LineChart data={tempData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" fontSize={11} />
+                    <YAxis fontSize={11} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="value" name="อุณหภูมิ" stroke="#f59e0b" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader className="pb-2"><CardTitle className="text-base">ออกซิเจนละลายน้ำ (mg/L)</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-48">
+                <ResponsiveContainer width="110%" height="100%" style={{marginLeft: -45}}>
+                  <LineChart data={oxygenData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="time" fontSize={11} />
+                    <YAxis fontSize={11} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="value" name="DO" stroke="#3b82f6" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {latestData && (
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="shadow-sm">
+              <CardHeader className="pb-2"><CardTitle className="text-base">พารามิเตอร์ปัจจุบัน</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-2.5">
+                  <div className="flex justify-between items-center text-sm">
+                    <span>ค่า pH:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{latestData.measurements.pH.value}</span>
+                      <Badge className={latestData.measurements.pH.status === 'excellent' || latestData.measurements.pH.status === 'good' ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}>
+                        {latestData.measurements.pH.statusThai}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span>อุณหภูมิ:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{latestData.measurements.temperature.value}°C</span>
+                      <Badge className={latestData.measurements.temperature.status === 'normal' ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}>
+                        {latestData.measurements.temperature.statusThai}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span>ออกซิเจน:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{latestData.measurements.dissolvedOxygen.value} mg/L</span>
+                      <Badge className={latestData.measurements.dissolvedOxygen.status === 'excellent' || latestData.measurements.dissolvedOxygen.status === 'good' ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>
+                        {latestData.measurements.dissolvedOxygen.statusThai}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span>ความเค็ม:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{latestData.measurements.salinity.value} PSU</span>
+                      <Badge className="bg-blue-100 text-blue-700">
+                        {latestData.measurements.salinity.statusThai}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span>ความขุ่น:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{latestData.measurements.turbidity.value} NTU</span>
+                      <Badge className={latestData.measurements.turbidity.status === 'clear' ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}>
+                        {latestData.measurements.turbidity.statusThai}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span>คลอโรฟิลล์:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{latestData.measurements.chlorophyl.value} mg/L</span>
+                      <Badge className={latestData.measurements.chlorophyl.status === 'normal' ? "bg-green-100 text-green-700" : latestData.measurements.chlorophyl.status === 'bloom' ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}>
+                        {latestData.measurements.chlorophyl.statusThai}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm">
+              <CardHeader className="pb-2"><CardTitle className="text-base">คำแนะนำการประมง</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-sm">{latestData.fishingRecommendation}</p>
+                  </div>
+                  {latestData.alerts.length > 0 && (
+                    <div>
+                      <h4 className="font-medium mb-2 text-sm">การแจ้งเตือน:</h4>
+                      <div className="space-y-1.5">
+                        {latestData.alerts.map((alert, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs">
+                            <div className="w-2 h-2 rounded-full bg-yellow-500 flex-shrink-0"></div>
+                            <span>{alert}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-base">การแจ้งเตือนคุณภาพน้ำ</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-[32rem] overflow-y-auto pr-2">
+              <Table
+                columns={["ประเภท", "ระดับ", "สถานี", "ข้อความ", "เวลา"]}
+                rows={mockWaterQualityAlerts.slice(0, 15).map(alert => [
+                  alert.type,
+                  <Badge key="severity" className={alert.severity === 'critical' ? "bg-red-100 text-red-700" : alert.severity === 'warning' ? "bg-yellow-100 text-yellow-700" : "bg-blue-100 text-blue-700"}>
+                    {alert.severityThai}
+                  </Badge>,
+                  alert.stationName,
+                  alert.messageThai,
+                  new Date(alert.timestamp).toLocaleTimeString('th-TH', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    day: '2-digit',
+                    month: '2-digit'
+                  })
+                ])}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Scroll indicator */}
+        <div className="text-center py-2 text-xs text-muted-foreground">
+          ⬆️ Scroll để xem thêm ข้อมูล ⬆️
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DataMartAPIPage() {
   return (
     <div>
@@ -626,6 +850,7 @@ const NAV = [
   { id: "length", label: "ความยาว & ชีวภาพ", icon: <Ruler className="h-4 w-4"/>, comp: <LengthBiologyPage/> },
   { id: "select", label: "การเลือกของเครื่องมือ", icon: <Settings className="h-4 w-4"/>, comp: <GearSelectivityPage/> },
   { id: "hotspot", label: "แผนที่จุดร้อน", icon: <Map className="h-4 w-4"/>, comp: <HotspotMapPage/> },
+  { id: "waterquality", label: "ตรวจสอบคุณภาพน้ำ", icon: <Droplets className="h-4 w-4"/>, comp: <WaterQualityPage/> },
   { id: "forecast", label: "พยากรณ์ & แจ้งเตือน", icon: <Bell className="h-4 w-4"/>, comp: <ForecastAlertsPage/> },
   { id: "whatif", label: "จำลองสถานการณ์", icon: <Settings className="h-4 w-4"/>, comp: <WhatIfSimulatorPage/> },
   { id: "chatbot", label: "AI Chatbot", icon: <Bot className="h-4 w-4"/>, comp: <ChatbotPage/> },
