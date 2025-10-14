@@ -623,7 +623,7 @@ function WaterQualityPage() {
             <CardHeader className="pb-2"><CardTitle className="text-base">ค่า pH (24 ชั่วโมงล่าสุด)</CardTitle></CardHeader>
             <CardContent>
               <div className="h-48">
-                <ResponsiveContainer width="110%" height="100%" style={{marginLeft: -45}}>
+                <ResponsiveContainer width="120%" height="100%" style={{marginLeft: -45}}>
                   <LineChart data={pHData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="time" fontSize={11} />
@@ -640,7 +640,7 @@ function WaterQualityPage() {
             <CardHeader className="pb-2"><CardTitle className="text-base">อุณหภูมิน้ำ (°C)</CardTitle></CardHeader>
             <CardContent>
               <div className="h-48">
-                <ResponsiveContainer width="110%" height="100%" style={{marginLeft: -45}}>
+                <ResponsiveContainer width="120%" height="100%" style={{marginLeft: -45}}>
                   <LineChart data={tempData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="time" fontSize={11} />
@@ -657,7 +657,7 @@ function WaterQualityPage() {
             <CardHeader className="pb-2"><CardTitle className="text-base">ออกซิเจนละลายน้ำ (mg/L)</CardTitle></CardHeader>
             <CardContent>
               <div className="h-48">
-                <ResponsiveContainer width="110%" height="100%" style={{marginLeft: -45}}>
+                <ResponsiveContainer width="120%" height="100%" style={{marginLeft: -45}}>
                   <LineChart data={oxygenData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="time" fontSize={11} />
