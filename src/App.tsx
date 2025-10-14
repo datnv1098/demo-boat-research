@@ -795,7 +795,7 @@ function DataMartAPIPage() {
   return (
     <div>
       <Header title="คลังข้อมูล & API มาตรฐาน" desc="ตารางมาตรฐานและ API ที่มีการควบคุมสิทธิ์เพื่อเชื่อมต่อกับระบบภายนอก (กรมประมง, สถาบันวิจัย, VMS)" icon={<Database className="h-6 w-6"/>} />
-      <div className="grid grid-cols-2 gap-6">
+      <div className="space-y-6">
         <Card className="shadow-sm">
           <CardHeader className="pb-2"><CardTitle>โครงสร้างฐานข้อมูล</CardTitle></CardHeader>
           <CardContent>
