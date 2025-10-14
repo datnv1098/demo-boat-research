@@ -67,7 +67,7 @@ app.get('*', (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log('Server running on port ' + port);
+  console.log(`Server running on port ` + port);
 });
 "@ | Out-File -FilePath server.js -Encoding utf8
 
@@ -110,52 +110,9 @@ Write-Host ""
 
 # Deploy on EC2
 Write-Host "🚀 Deploying on EC2..." -ForegroundColor Yellow
-$deployScript = @'
-set -e
 
-echo "Setting up directories..."
-sudo mkdir -p /var/www/fisheries-demo
-cd /var/www/fisheries-demo
-
-echo "Backing up old version..."
-sudo mv dist dist.backup 2>/dev/null || true
-
-echo "Extracting new version..."
-sudo unzip -o /tmp/deploy.zip
-sudo mv package-prod.json package.json
-
-echo "Installing Node.js if needed..."
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-fi
-
-echo "Installing dependencies..."
-sudo npm install --production
-
-echo "Installing PM2 if needed..."
-if ! command -v pm2 &> /dev/null; then
-    sudo npm install -g pm2
-fi
-
-echo "Setting permissions..."
-sudo chown -R $USER:$USER /var/www/fisheries-demo
-sudo chmod -R 755 /var/www/fisheries-demo
-
-echo "Restarting application..."
-pm2 delete fisheries-demo 2>/dev/null || true
-pm2 start server.js --name fisheries-demo
-pm2 save
-sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u $USER --hp /home/$USER
-
-echo "Installing Nginx if needed..."
-if ! command -v nginx &> /dev/null; then
-    sudo apt-get update
-    sudo apt-get install -y nginx
-fi
-
-echo "Configuring Nginx..."
-sudo tee /etc/nginx/sites-available/fisheries-demo > /dev/null << 'NGINX_EOF'
+# Create nginx config file
+@"
 server {
     listen 80;
     server_name _;
@@ -163,33 +120,46 @@ server {
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade `$http_upgrade;
+        proxy_set_header Connection upgrade;
+        proxy_set_header Host `$host;
+        proxy_cache_bypass `$http_upgrade;
+        proxy_set_header X-Real-IP `$remote_addr;
+        proxy_set_header X-Forwarded-For `$proxy_add_x_forwarded_for;
     }
 }
-NGINX_EOF
+"@ | Out-File -FilePath nginx-config -Encoding utf8 -NoNewline
 
+# Upload nginx config
+scp -i $EC2_KEY -o StrictHostKeyChecking=no nginx-config ${EC2_USER}@${EC2_HOST}:/tmp/
+
+# Execute deployment commands
+ssh -i $EC2_KEY -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} @"
+cd /var/www/fisheries-demo 2>/dev/null `|`| sudo mkdir -p /var/www/fisheries-demo
+cd /var/www/fisheries-demo
+sudo mv dist dist.backup 2>/dev/null `|`| true
+sudo unzip -o /tmp/deploy.zip
+sudo mv package-prod.json package.json
+command -v node >/dev/null 2>&1 `|`| (curl -fsSL https://deb.nodesource.com/setup_18.x `| sudo -E bash - `&`& sudo apt-get install -y nodejs)
+sudo npm install --production
+command -v pm2 >/dev/null 2>&1 `|`| sudo npm install -g pm2
+sudo chown -R `$USER:`$USER /var/www/fisheries-demo
+sudo chmod -R 755 /var/www/fisheries-demo
+pm2 delete fisheries-demo 2>/dev/null `|`| true
+pm2 start server.js --name fisheries-demo
+pm2 save
+sudo env PATH=`$PATH:/usr/bin pm2 startup systemd -u `$USER --hp /home/`$USER
+command -v nginx >/dev/null 2>&1 `|`| (sudo apt-get update `&`& sudo apt-get install -y nginx)
+sudo mv /tmp/nginx-config /etc/nginx/sites-available/fisheries-demo
 sudo ln -sf /etc/nginx/sites-available/fisheries-demo /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl reload nginx
+sudo nginx -t `&`& sudo systemctl reload nginx
 sudo systemctl enable nginx
-
-echo "Cleaning up..."
 sudo rm -f /tmp/deploy.zip
-
 echo ""
-echo "========================================="
-echo "  DEPLOYMENT COMPLETED SUCCESSFULLY!"
-echo "========================================="
-echo ""
+echo "Deployment completed!"
 pm2 status
-'@
-
-ssh -i $EC2_KEY -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} $deployScript
+"@
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
