@@ -765,7 +765,7 @@ function WaterQualityPage() {
         <Card className="shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-base">การแจ้งเตือนคุณภาพน้ำ</CardTitle></CardHeader>
           <CardContent className="p-2">
-            <div className="h-[32rem] overflow-y-auto pr-2 p-5" style={{marginLeft: 10}}>
+            <div className="h-[32rem] overflow-y-auto pr-2 p-2" style={{marginLeft: 10}}>
               <Table
                 columns={["ประเภท", "ระดับ", "สถานี", "ข้อความ", "เวลา"]}
                 rows={mockWaterQualityAlerts.slice(0, 15).map(alert => [
