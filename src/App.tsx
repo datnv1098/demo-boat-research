@@ -588,7 +588,6 @@ function WaterQualityPage() {
   const oxygenData = stationData.slice(-24).map(d => ({ time: d.time, value: d.measurements.dissolvedOxygen.value }));
   
   // Calculate averages
-  const avgWQI = Math.round(stationData.reduce((sum, d) => sum + d.waterQualityIndex, 0) / stationData.length);
   const activeAlerts = mockWaterQualityAlerts.filter(a => !a.resolved).length;
   
   return (
@@ -765,7 +764,7 @@ function WaterQualityPage() {
         <Card className="shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-base">การแจ้งเตือนคุณภาพน้ำ</CardTitle></CardHeader>
           <CardContent>
-            <div className="h-[32rem] overflow-y-auto pr-2">
+            <div className="h-[32rem] overflow-y-auto pr-2 p-5" style={{marginLeft: 10}}>
               <Table
                 columns={["ประเภท", "ระดับ", "สถานี", "ข้อความ", "เวลา"]}
                 rows={mockWaterQualityAlerts.slice(0, 15).map(alert => [
@@ -789,7 +788,7 @@ function WaterQualityPage() {
 
         {/* Scroll indicator */}
         <div className="text-center py-2 text-xs text-muted-foreground">
-          ⬆️ Scroll để xem thêm ข้อมูล ⬆️
+          ⬆️ ข้อมูล ⬆️
         </div>
       </div>
     </div>
@@ -881,7 +880,7 @@ export default function App() {
         </aside>
 
         {/* Content */}
-        <main className="pb-12">
+        <main className="pb-12" style={{maxHeight: 'calc(100vh - 110px)'}}>
           {NAV.find(n => n.id===active)?.comp}
         </main>
       </div>

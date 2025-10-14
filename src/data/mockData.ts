@@ -15,11 +15,6 @@ import {
   mockWaterQualityData,
   mockWaterQualityAlerts
 } from './waterQualityMock';
-import {
-  ProcessedWaterQuality,
-  WaterQualityAlert,
-  WaterMonitoringStation
-} from './waterMonitoring';
 
 export interface Trip {
   tripId: string;
