@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { MapContainer, TileLayer, GeoJSON, Circle, Popup } from 'react-leaflet'
 import { LatLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
   THAILAND_PROVINCES_GEOJSON,
   THAILAND_MARINE_ZONES,
-  THAILAND_CENTER,
   THAILAND_BOUNDS,
 } from '../data/thailandGeoData'
 import { Switch } from './ui/switch'
@@ -13,37 +12,55 @@ import { Label } from './ui/label'
 
 // Import Leaflet icons
 import L from 'leaflet'
-import icon from 'leaflet/dist/images/marker-icon.png'
-import iconShadow from 'leaflet/dist/images/marker-shadow.png'
 
-// Fix Leaflet default icons
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
+// Fix Leaflet default icons - using CDN approach to avoid require issues
+const DefaultIcon = L.icon({
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
 })
 L.Marker.prototype.options.icon = DefaultIcon
 
-export function ThailandMap({ hotspotData, month }) {
+// Type definitions
+interface HotspotCell {
+  coordinates: {
+    lat: number
+    lon: number
+  }
+  density: number
+}
+
+interface ThailandMapProps {
+  hotspotData: HotspotCell[][]
+  month: string
+}
+
+interface HeatmapPoint {
+  lat: number
+  lng: number
+  density: number
+}
+
+export function ThailandMap({ hotspotData, month }: ThailandMapProps) {
   const [showProvinces, setShowProvinces] = useState(false) // Ẩn tỉnh thành mặc định
   const [showMarineZones, setShowMarineZones] = useState(false) // Ẩn mặc định
   const [showHeatmap, setShowHeatmap] = useState(true)
 
   // Convert hotspot grid data to heatmap points - chỉ lấy những điểm có mật độ cao
-  const heatmapPoints = hotspotData
+  const heatmapPoints: HeatmapPoint[] = hotspotData
     .flat()
-    .filter((cell) => cell.density > 60) // Chỉ lấy điểm có mật độ > 60%
-    .sort((a, b) => b.density - a.density) // Sắp xếp theo mật độ giảm dần
+    .filter((cell: HotspotCell) => cell.density > 60) // Chỉ lấy điểm có mật độ > 60%
+    .sort((a: HotspotCell, b: HotspotCell) => b.density - a.density) // Sắp xếp theo mật độ giảm dần
     .slice(0, 8) // Chỉ lấy 8 điểm có mật độ cao nhất
-    .map((cell) => ({
+    .map((cell: HotspotCell) => ({
       lat: cell.coordinates.lat,
       lng: cell.coordinates.lon,
       density: cell.density,
     }))
 
   // Style functions for GeoJSON layers
-  const provinceStyle = (feature) => ({
+  const provinceStyle = () => ({
     fillColor: 'transparent',
     weight: 0.75, // Giảm từ 1.5 xuống 0.75
     opacity: 0.8,
@@ -52,7 +69,7 @@ export function ThailandMap({ hotspotData, month }) {
     fillOpacity: 0.1,
   })
 
-  const marineZoneStyle = (feature) => {
+  const marineZoneStyle = (feature: any) => {
     const zoneType = feature.properties.zone_type
     return {
       fillColor: zoneType === 'eez' ? '#10b981' : '#3b82f6',
@@ -65,7 +82,7 @@ export function ThailandMap({ hotspotData, month }) {
   }
 
   // Popup content for features
-  const onEachFeature = (feature, layer) => {
+  const onEachFeature = (feature: any, layer: any) => {
     if (feature.properties) {
       const props = feature.properties
       let popupContent = `<div class="p-2">
@@ -154,7 +171,7 @@ export function ThailandMap({ hotspotData, month }) {
           {/* Provincial Boundaries */}
           {showProvinces && (
             <GeoJSON
-              data={THAILAND_PROVINCES_GEOJSON}
+              data={THAILAND_PROVINCES_GEOJSON as any}
               style={provinceStyle}
               onEachFeature={onEachFeature}
             />
@@ -163,7 +180,7 @@ export function ThailandMap({ hotspotData, month }) {
           {/* Marine Zones */}
           {showMarineZones && (
             <GeoJSON
-              data={THAILAND_MARINE_ZONES}
+              data={THAILAND_MARINE_ZONES as any}
               style={marineZoneStyle}
               onEachFeature={onEachFeature}
             />
@@ -171,7 +188,7 @@ export function ThailandMap({ hotspotData, month }) {
 
           {/* Heatmap Overlay as Circles */}
           {showHeatmap &&
-            heatmapPoints.map((point, index) => (
+            heatmapPoints.map((point: HeatmapPoint, index: number) => (
               <Circle
                 key={index}
                 center={[point.lat, point.lng]}
