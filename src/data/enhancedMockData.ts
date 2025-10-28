@@ -5,13 +5,11 @@ import {
   Trip,
   CPUEData,
   LengthData,
-  SpeciesInfo,
   FISHING_AREAS,
   SPECIES_INFO,
   realTrips,
   realCPUEData,
-  realLengthData,
-  realSpeciesInfo
+  realLengthData
 } from './mockData';
 import { generateThaiCaptainName, generateThaiVesselName } from './excelParser';
 
@@ -44,10 +42,10 @@ export const generateEnhancedTrips = (count: number = 50): Trip[] => {
     const area = areas[i % areas.length];
     const baseDate = new Date(2024, Math.floor(i / 12), (i % 28) + 1);
     const season = Math.floor((baseDate.getMonth() + 1) / 3); // 0-3 for Q1-Q4
-    const seasonKey = ['Q1', 'Q2', 'Q3', 'Q4'][season] as keyof typeof seasonalMultipliers[typeof area];
+    const seasonKey = ['Q1', 'Q2', 'Q3', 'Q4'][season];
 
     // Apply seasonal multiplier
-    const seasonalMultiplier = seasonalMultipliers[area as keyof typeof seasonalMultipliers]?.[seasonKey] || 1.0;
+    const seasonalMultiplier = (seasonalMultipliers as any)[area]?.[seasonKey] || 1.0;
 
     const duration = (8 + Math.random() * 16) * seasonalMultiplier; // 8-24 ชั่วโมง ปรับตามฤดูกาล
     const endDate = new Date(baseDate.getTime() + duration * 60 * 60 * 1000);
@@ -213,7 +211,7 @@ export const generateEnhancedLengthData = (): LengthData[] => {
 
 // Generate Environmental Factors Data
 export const generateEnvironmentalData = () => {
-  const data = [];
+  const data: any[] = [];
   const areas = Object.keys(FISHING_AREAS);
 
   for (let month = 0; month < 24; month++) {
@@ -221,7 +219,6 @@ export const generateEnvironmentalData = () => {
 
     areas.forEach(area => {
       // Seasonal environmental patterns
-      const season = Math.floor((month % 12) / 3);
       const tempBase = 25 + 5 * Math.sin((month / 12) * 2 * Math.PI);
       const salinityBase = 32 + 3 * Math.sin((month / 12) * 2 * Math.PI + Math.PI / 4);
 
@@ -289,23 +286,33 @@ export const enhancedAlerts = generateEnhancedAlerts();
 
 // Validation Functions
 export const validateMockDataConsistency = () => {
-  const issues = [];
+  const errors: string[] = [];
+  const warnings: string[] = [];
 
   // Check trip data consistency
   enhancedTrips.forEach(trip => {
-    if (trip.totalCatch < 0) issues.push(`Trip ${trip.tripId}: Invalid catch weight`);
-    if (trip.duration <= 0) issues.push(`Trip ${trip.tripId}: Invalid duration`);
-    if (trip.dqScore < 0 || trip.dqScore > 100) issues.push(`Trip ${trip.tripId}: Invalid data quality score`);
+    if (trip.totalCatch < 0) errors.push(`Trip ${trip.tripId}: Invalid catch weight`);
+    if (trip.duration <= 0) errors.push(`Trip ${trip.tripId}: Invalid duration`);
+    if (trip.dqScore < 0 || trip.dqScore > 100) errors.push(`Trip ${trip.tripId}: Invalid data quality score`);
   });
 
   // Check CPUE data consistency
   enhancedCPUEData.forEach(cpue => {
-    if (cpue.cpue < 0) issues.push(`CPUE data: Negative CPUE value`);
-    if (cpue.effort <= 0) issues.push(`CPUE data: Invalid effort`);
-    if (Math.abs(cpue.catch - cpue.cpue * cpue.effort) > 0.1) issues.push(`CPUE data: Catch calculation mismatch`);
+    if (cpue.cpue < 0) errors.push(`CPUE data: Negative CPUE value`);
+    if (cpue.effort <= 0) errors.push(`CPUE data: Invalid effort`);
+    if (Math.abs(cpue.catch - cpue.cpue * cpue.effort) > 0.1) warnings.push(`CPUE data: Catch calculation mismatch`);
   });
 
-  return issues;
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    summary: {
+      validRecords: enhancedTrips.length + enhancedCPUEData.length - errors.length,
+      totalRecords: enhancedTrips.length + enhancedCPUEData.length,
+      completeness: 100 - (errors.length / (enhancedTrips.length + enhancedCPUEData.length)) * 100
+    }
+  };
 };
 
 console.log('Enhanced mock data generated successfully!');

@@ -66,8 +66,6 @@ import {
   mockForecastData,
   mockAlerts,
   FISHING_AREAS,
-  MONITORING_STATIONS,
-  mockWaterQualityData,
   mockWaterQualityAlerts,
 } from './data/mockData'
 import { formatValidDate } from './lib/utils'
@@ -1236,16 +1234,7 @@ function WaterQualityPage() {
   )
   const latestData = stationData[stationData.length - 1]
 
-  // Create time series data for charts
-  const pHData = stationData
-    .slice(-24)
-    .map((d: any) => ({ time: d.time, value: d.measurements.pH.value }))
-  const tempData = stationData
-    .slice(-24)
-    .map((d: any) => ({ time: d.time, value: d.measurements.temperature.value }))
-  const oxygenData = stationData
-    .slice(-24)
-    .map((d: any) => ({ time: d.time, value: d.measurements.dissolvedOxygen.value }))
+  // Time series data for charts (currently commented out)
 
   // Calculate averages
   const activeAlerts = mockWaterQualityAlerts.filter((a) => !a.resolved).length

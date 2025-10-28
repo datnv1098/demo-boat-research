@@ -11,9 +11,6 @@ import {
   FISHING_AREAS
 } from './mockData';
 import {
-  enhancedTrips,
-  enhancedCPUEData,
-  enhancedLengthData,
   validateMockDataConsistency
 } from './enhancedMockData';
 
@@ -250,7 +247,7 @@ export const validateSpeciesData = (speciesData: typeof realSpeciesInfo): Valida
   const warnings: string[] = [];
   let validCount = 0;
 
-  Object.entries(speciesData).forEach(([name, species], index) => {
+  Object.entries(speciesData).forEach(([name, species]) => {
     let isValid = true;
 
     // ตรวจสอบชื่อ
@@ -315,7 +312,7 @@ export const validateWaterQualityData = (wqData: typeof realWaterQualityData): V
 
     // ตรวจสอบ temperature
     ['surface', 'middle', 'bottom'].forEach(layer => {
-      const temp = record.temperature[layer];
+      const temp = (record.temperature as any)[layer];
       if (typeof temp !== 'number' || temp < 10 || temp > 40) {
         errors.push(`Water Quality ${index}: Invalid ${layer} temperature`);
         isValid = false;
@@ -324,7 +321,7 @@ export const validateWaterQualityData = (wqData: typeof realWaterQualityData): V
 
     // ตรวจสอบ salinity
     ['surface', 'middle', 'bottom'].forEach(layer => {
-      const sal = record.salinity[layer];
+      const sal = (record.salinity as any)[layer];
       if (typeof sal !== 'number' || sal < 0 || sal > 50) {
         errors.push(`Water Quality ${index}: Invalid ${layer} salinity`);
         isValid = false;
@@ -333,7 +330,7 @@ export const validateWaterQualityData = (wqData: typeof realWaterQualityData): V
 
     // ตรวจสอบ pH
     ['surface', 'middle', 'bottom'].forEach(layer => {
-      const ph = record.pH[layer];
+      const ph = (record.pH as any)[layer];
       if (typeof ph !== 'number' || ph < 4 || ph > 11) {
         errors.push(`Water Quality ${index}: Invalid ${layer} pH`);
         isValid = false;
@@ -342,7 +339,7 @@ export const validateWaterQualityData = (wqData: typeof realWaterQualityData): V
 
     // ตรวจสอบ dissolved oxygen
     ['surface', 'middle', 'bottom'].forEach(layer => {
-      const do2 = record.dissolvedOxygen[layer];
+      const do2 = (record.dissolvedOxygen as any)[layer];
       if (typeof do2 !== 'number' || do2 < 0 || do2 > 20) {
         errors.push(`Water Quality ${index}: Invalid ${layer} dissolved oxygen`);
         isValid = false;
@@ -388,25 +385,26 @@ export const validateAllData = () => {
   // แสดงผลการตรวจสอบ
   Object.entries(results).forEach(([dataType, result]) => {
     console.log(`📊 ${dataType.toUpperCase()} DATA:`);
-    console.log(`   ✓ Valid: ${result.summary.validRecords}/${result.summary.totalRecords} (${result.summary.completeness}%)`);
+    const validationResult = result as ValidationResult;
+    console.log(`   ✓ Valid: ${validationResult.summary.validRecords}/${validationResult.summary.totalRecords} (${validationResult.summary.completeness}%)`);
 
-    if (result.errors.length > 0) {
-      console.log(`   ❌ Errors: ${result.errors.length}`);
-      result.errors.slice(0, 3).forEach(error => console.log(`      - ${error}`));
-      if (result.errors.length > 3) console.log(`      ... and ${result.errors.length - 3} more`);
+    if (validationResult.errors.length > 0) {
+      console.log(`   ❌ Errors: ${validationResult.errors.length}`);
+      validationResult.errors.slice(0, 3).forEach((error: string) => console.log(`      - ${error}`));
+      if (validationResult.errors.length > 3) console.log(`      ... and ${validationResult.errors.length - 3} more`);
     }
 
-    if (result.warnings.length > 0) {
-      console.log(`   ⚠️  Warnings: ${result.warnings.length}`);
-      result.warnings.slice(0, 2).forEach(warning => console.log(`      - ${warning}`));
+    if (validationResult.warnings.length > 0) {
+      console.log(`   ⚠️  Warnings: ${validationResult.warnings.length}`);
+      validationResult.warnings.slice(0, 2).forEach((warning: string) => console.log(`      - ${warning}`));
     }
     console.log('');
   });
 
   // สรุปผลการตรวจสอบ
-  const totalValid = Object.values(results).every(r => r.isValid);
-  const totalErrors = Object.values(results).reduce((sum, r) => sum + r.errors.length, 0);
-  const totalWarnings = Object.values(results).reduce((sum, r) => sum + r.warnings.length, 0);
+  const totalValid = Object.values(results).every(r => (r as ValidationResult).isValid);
+  const totalErrors = Object.values(results).reduce((sum, r) => sum + (r as ValidationResult).errors.length, 0);
+  const totalWarnings = Object.values(results).reduce((sum, r) => sum + (r as ValidationResult).warnings.length, 0);
 
   console.log('🎯 SUMMARY:');
   console.log(`   Overall Status: ${totalValid ? '✅ PASSED' : '❌ FAILED'}`);
