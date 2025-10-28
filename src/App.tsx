@@ -51,15 +51,20 @@ import {
 import { Chatbot } from './components/Chatbot'
 import { ThailandMap } from './components/ThailandMap'
 
-// Import professional Thai fisheries data
+// Import converted Excel data
 import {
-  mockTrips,
-  mockCPUEData,
-  mockLengthData,
+  excelConvertedTrips,
+  excelConvertedCPUEData,
+  excelConvertedLengthData,
+  excelConvertedSpeciesInfo,
+  excelConvertedWaterQualityData
+} from './data/convertedExcelData'
+
+// Import additional mock data for features not in Excel
+import {
   mockSelectivityData,
   mockForecastData,
   mockAlerts,
-  SPECIES_INFO,
   FISHING_AREAS,
   MONITORING_STATIONS,
   mockWaterQualityData,
@@ -306,71 +311,236 @@ function Table({
 // ---------- Pages ----------
 
 function DataQualityPage() {
+  // Enhanced data quality analysis from Excel data
+  const totalTrips = excelConvertedTrips.length;
+  const avgDQScore = Math.round(
+    excelConvertedTrips.reduce((a, b) => a + b.dqScore, 0) / totalTrips
+  );
+  const totalIssues = excelConvertedTrips.reduce((a, b) => a + (b.issues?.length || 0), 0);
+
+  // Analyze issues by type
+  const issueTypes: Record<string, number> = {};
+  excelConvertedTrips.forEach(trip => {
+    trip.issues?.forEach(issue => {
+      issueTypes[issue] = (issueTypes[issue] || 0) + 1;
+    });
+  });
+
+  // Data quality by fishing area
+  const dqByArea: Record<string, { trips: number; totalDQ: number; issues: number }> = {};
+  excelConvertedTrips.forEach(trip => {
+    if (!dqByArea[trip.fishingArea]) {
+      dqByArea[trip.fishingArea] = { trips: 0, totalDQ: 0, issues: 0 };
+    }
+    dqByArea[trip.fishingArea].trips++;
+    dqByArea[trip.fishingArea].totalDQ += trip.dqScore;
+    dqByArea[trip.fishingArea].issues += trip.issues?.length || 0;
+  });
+
+  // Monthly data quality trends
+  const monthlyDQ: Record<string, { trips: number; totalDQ: number; issues: number }> = {};
+  excelConvertedTrips.forEach(trip => {
+    const month = trip.startDate.substring(0, 7); // YYYY-MM
+    if (!monthlyDQ[month]) {
+      monthlyDQ[month] = { trips: 0, totalDQ: 0, issues: 0 };
+    }
+    monthlyDQ[month].trips++;
+    monthlyDQ[month].totalDQ += trip.dqScore;
+    monthlyDQ[month].issues += trip.issues?.length || 0;
+  });
+
+  const monthlyDQData = Object.entries(monthlyDQ)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, data]) => ({
+      month,
+      avgDQ: Math.round(data.totalDQ / data.trips),
+      issueRate: Math.round((data.issues / data.trips) * 100) / 100
+    }));
+
+  // Issue type analysis for chart
+  const issueChartData = totalIssues > 0 ? Object.entries(issueTypes)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 8)
+    .map(([issue, count]) => ({
+      issue: issue.length > 20 ? issue.substring(0, 20) + '...' : issue,
+      count,
+      percentage: Math.round((count / totalIssues) * 100)
+    })) : [];
+
   return (
     <div>
       <Header
         title="คุณภาพข้อมูล & ควบคุมคุณภาพ"
-        desc="ตรวจสอบข้อมูลการเดินทางประมงที่อัปโหลดด้วยกฎและสถิติ: พิกัด ระยะเวลา ความเร็ว ความลึก การซ้ำ; คำนวณดัชนีคุณภาพต่อการลาก/การเดินทาง"
+        desc="วิเคราะห์คุณภาพข้อมูลจากการสำรวจประมงด้วย Excel: ตรวจสอบพิกัด ความลึก ระยะเวลา การซ้ำซ้อน; คำนวณดัชนีคุณภาพและอัตราการปฏิบัติตามกฎ"
         icon={<ShieldCheck className="h-6 w-6" />}
       />
-      <div className="grid grid-cols-4 gap-4 mb-6">
+
+      {/* Enhanced Statistics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Stat
-          label="จำนวนครั้งที่ออกเก็บข้อมูล"
-          value={mockTrips.length}
-          hint="ในช่วงนี้"
+          label="จำนวนการสำรวจ"
+          value={totalTrips}
+          hint="จากข้อมูล Excel"
         />
         <Stat
           label="ดัชนีคุณภาพเฉลี่ย"
-          value={`${Math.round(
-            mockTrips.reduce((a, b) => a + b.dqScore, 0) / mockTrips.length
-          )} / 100`}
+          value={`${avgDQScore}/100`}
+          hint={`${Math.round((avgDQScore/100)*100)}% compliance`}
         />
         <Stat
           label="ปัญหาที่ตรวจพบ"
-          value={mockTrips.reduce((a, b) => a + (b.issues?.length || 0), 0)}
-          hint="ทุกการเดินทาง"
+          value={totalIssues}
+          hint={`${Math.round((totalIssues/totalTrips)*100)}% ของการสำรวจ`}
         />
         <Stat
-          label="จำนวนเรือทั้งหมด"
-          value={new Set(mockTrips.map((t) => t.vessel)).size}
+          label="จำนวนเรือที่ใช้งาน"
+          value={new Set(excelConvertedTrips.map((t) => t.vessel)).size}
+          hint="จากข้อมูลจริง"
         />
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Monthly Data Quality Trends */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">แนวโน้มคุณภาพข้อมูลรายเดือน</CardTitle>
+            <CardDescription>ติดตามการปรับปรุงคุณภาพข้อมูลตามช่วงเวลา</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={monthlyDQData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis yAxisId="dq" orientation="left" domain={[0, 100]} />
+                <YAxis yAxisId="issues" orientation="right" />
+                <Tooltip />
+                <Legend />
+                <Line
+                  yAxisId="dq"
+                  type="monotone"
+                  dataKey="avgDQ"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  name="ดัชนีคุณภาพ"
+                />
+                <Line
+                  yAxisId="issues"
+                  type="monotone"
+                  dataKey="issueRate"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  name="อัตราปัญหา"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Issue Types Analysis */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg">ประเภทปัญหาที่ตรวจพบ</CardTitle>
+            <CardDescription>การกระจายของปัญหาต่างๆ ในข้อมูลสำรวจ</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={issueChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="issue" angle={-45} textAnchor="end" height={80} />
+                <YAxis />
+                <Tooltip formatter={(value: any) => [value, 'จำนวนครั้ง']} />
+                <Bar dataKey="count" fill="#f59e0b" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Data Quality by Fishing Area - TEMPORARILY COMMENTED OUT */}
+      {/*
+      <Card className="shadow-sm mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg">คุณภาพข้อมูลตามพื้นที่ประมง</CardTitle>
+          <CardDescription>เปรียบเทียบคุณภาพข้อมูลในแต่ละพื้นที่สำรวจ</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table
+              columns={['พื้นที่ประมง', 'จำนวนการสำรวจ', 'ดัชนีคุณภาพเฉลี่ย', 'จำนวนปัญหา', 'อัตราการปฏิบัติตาม']}
+              rows={Object.entries(dqByArea).map(([area, data]) => [
+                area,
+                data.trips,
+                `${Math.round(data.totalDQ / data.trips)}/100`,
+                data.issues,
+                <Badge key={`compliance-${area}`} className={
+                  Math.round(data.totalDQ / data.trips) >= 90 ? "bg-green-100 text-green-700" :
+                  Math.round(data.totalDQ / data.trips) >= 70 ? "bg-yellow-100 text-yellow-700" :
+                  "bg-red-100 text-red-700"
+                }>
+                  {Math.round((data.totalDQ / data.trips) / 100 * 100)}%
+                </Badge>
+              ])}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      */}
+
+      {/* Detailed Trip Records */}
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>บันทึกคุณภาพการเดินทาง</CardTitle>
+          <CardTitle className="text-lg">บันทึกการสำรวจและคุณภาพข้อมูล</CardTitle>
           <CardDescription>
-            ปัญหาที่ถูกติดธงจะถูกแสดงเพื่อความโปร่งใสและการตรวจสอบย้อนหลัง
+            รายละเอียดการสำรวจแต่ละครั้งพร้อมการประเมินคุณภาพข้อมูลและปัญหาที่ตรวจพบ
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-80 overflow-y-auto pr-2">
             <Table
               columns={[
-                'รหัสการเดินทาง',
+                'รหัสการสำรวจ',
                 'เรือ',
-                'วันที่เริ่ม',
+                'พื้นที่',
+                'วันที่',
                 'คะแนน DQ',
                 'ปัญหา',
+                'สถานะ'
               ]}
-              rows={mockTrips.map((t) => [
+              rows={excelConvertedTrips.map((t) => [
                 t.tripId,
                 t.vessel,
+                t.fishingArea.split(' ')[0],
                 t.startDate,
-                <Badge key="dq" className="bg-blue-100 text-blue-700">
+                <Badge key={`dq-${t.tripId}`} className={
+                  t.dqScore >= 90 ? "bg-green-100 text-green-700" :
+                  t.dqScore >= 70 ? "bg-blue-100 text-blue-700" :
+                  "bg-red-100 text-red-700"
+                }>
                   {t.dqScore}
                 </Badge>,
-                <div className="flex flex-wrap gap-2" key="issues">
+                <div className="flex flex-wrap gap-1" key={`issues-${t.tripId}`}>
                   {t.issues.length ? (
-                    t.issues.map((i, ix) => (
-                      <Badge key={ix} className="bg-red-100 text-red-700">
-                        {i}
+                    t.issues.slice(0, 2).map((i, ix) => (
+                      <Badge key={`issue-${t.tripId}-${ix}`} className="bg-red-100 text-red-700 text-xs">
+                        {i.length > 15 ? i.substring(0, 15) + '...' : i}
                       </Badge>
                     ))
                   ) : (
-                    <Badge className="bg-gray-100 text-gray-700">ไม่มี</Badge>
+                    <Badge key={`no-issue-${t.tripId}`} className="bg-gray-100 text-gray-700 text-xs">ไม่มีปัญหา</Badge>
+                  )}
+                  {t.issues.length > 2 && (
+                    <Badge key={`more-issues-${t.tripId}`} className="bg-gray-100 text-gray-700 text-xs">
+                      +{t.issues.length - 2}
+                    </Badge>
                   )}
                 </div>,
+                <Badge key={`status-${t.tripId}`} className={
+                  t.dqScore >= 90 ? "bg-green-100 text-green-700" :
+                  t.dqScore >= 70 ? "bg-yellow-100 text-yellow-700" :
+                  "bg-red-100 text-red-700"
+                }>
+                  {t.dqScore >= 90 ? 'ดีเยี่ยม' : t.dqScore >= 70 ? 'ดี' : 'ต้องปรับปรุง'}
+                </Badge>
               ])}
             />
           </div>
@@ -382,14 +552,15 @@ function DataQualityPage() {
 
 function CPUEPage() {
   const [species, setSpecies] = useState('ปลาทู')
-  const [area, setArea] = useState('อ่าวไทยตอนบน (ชลบุรี-ประจวบคีรีขันธ์)')
+  const [area, setArea] = useState('ฝั่งอันดามันเหนือ (ระนอง-พังงา)')
 
   // Filter and transform CPUE data for selected species and area
-  const series = mockCPUEData
+  const series = excelConvertedCPUEData
     .filter((d) => d.species === species && d.fishingArea === area)
     .map((d) => ({ x: d.month, y: d.cpue }))
 
-  const speciesOptions = Object.keys(SPECIES_INFO)
+  // Only show species that have CPUE data
+  const speciesOptions = [...new Set(excelConvertedCPUEData.map(d => d.species))].sort()
   const areaOptions = Object.keys(FISHING_AREAS)
 
   return (
@@ -410,7 +581,7 @@ function CPUEPage() {
             <SelectContent>
               {speciesOptions.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {s} ({SPECIES_INFO[s].scientificName})
+                  {s} ({(excelConvertedSpeciesInfo as any)[s]?.scientificName || 'N/A'})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -469,7 +640,7 @@ function LengthBiologyPage() {
   const [selectedSpecies, setSelectedSpecies] = useState('ปลาทู')
 
   // Filter length data for selected species
-  const lengthDist = mockLengthData
+  const lengthDist = excelConvertedLengthData
     .filter((d) => d.species === selectedSpecies && d.season === 'Q3')
     .map((d) => ({
       bin: d.lengthBin,
@@ -500,7 +671,7 @@ function LengthBiologyPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.keys(SPECIES_INFO).map((species) => (
+            {Object.keys(excelConvertedSpeciesInfo).map((species) => (
               <SelectItem key={species} value={species}>
                 {species}
               </SelectItem>
@@ -910,7 +1081,7 @@ function ChatbotPage() {
   }
 
   // Sample chart data from Thai species
-  const sampleChartData = mockCPUEData
+  const sampleChartData = excelConvertedCPUEData
     .filter((d) => d.species === 'ปลาทู')
     .slice(-8)
     .map((d) => ({ x: d.month, y: d.cpue }))
@@ -1030,25 +1201,51 @@ function ReportsPage() {
   )
 }
 
+// Adapter to convert Excel water quality data to compatible format
+const adaptExcelWaterQualityData = (excelData: typeof excelConvertedWaterQualityData) => {
+  return excelData.map((record: any, index: number) => ({
+    stationId: `WQ${String(index + 1).padStart(3, '0')}`,
+    date: `2025-10-${String((index % 28) + 1).padStart(2, '0')}`,
+    time: `${String((index % 24)).padStart(2, '0')}:00`,
+    measurements: {
+      pH: { value: record.pH.surface, status: 'normal', statusThai: 'ปกติ' },
+      temperature: { value: record.temperature.surface, status: 'normal', statusThai: 'ปกติ' },
+      dissolvedOxygen: { value: record.dissolvedOxygen.surface, status: 'normal', statusThai: 'ปกติ' },
+      salinity: { value: record.salinity.surface, status: 'normal', statusThai: 'ปกติ' },
+      turbidity: { value: 10 + Math.random() * 20, unit: 'NTU', status: 'clear', statusThai: 'ใส' },
+      conductivity: { value: 35000 + Math.random() * 10000 }, // Mock conductivity
+      chlorophyl: { value: record.chlorophyl || 5 + Math.random() * 10, status: 'normal', statusThai: 'ปกติ' }
+    },
+    overallQuality: 'good' as const,
+    overallQualityThai: 'ดี',
+    waterQualityIndex: 75 + Math.random() * 20,
+    fishingRecommendation: 'เงื่อนไขน้ำเหมาะสมสำหรับการประมง แนะนำใช้เครื่องมือลากและอุปกรณ์เสริม',
+    alerts: []
+  }));
+};
+
 function WaterQualityPage() {
   const [selectedStation, setSelectedStation] = useState('WQ001')
 
+  // Use adapted Excel water quality data
+  const adaptedWaterQualityData = adaptExcelWaterQualityData(excelConvertedWaterQualityData);
+
   // Filter water quality data for selected station
-  const stationData = mockWaterQualityData.filter(
-    (d) => d.stationId === selectedStation
+  const stationData = adaptedWaterQualityData.filter(
+    (d: any) => d.stationId === selectedStation
   )
   const latestData = stationData[stationData.length - 1]
 
   // Create time series data for charts
   const pHData = stationData
     .slice(-24)
-    .map((d) => ({ time: d.time, value: d.measurements.pH.value }))
+    .map((d: any) => ({ time: d.time, value: d.measurements.pH.value }))
   const tempData = stationData
     .slice(-24)
-    .map((d) => ({ time: d.time, value: d.measurements.temperature.value }))
+    .map((d: any) => ({ time: d.time, value: d.measurements.temperature.value }))
   const oxygenData = stationData
     .slice(-24)
-    .map((d) => ({ time: d.time, value: d.measurements.dissolvedOxygen.value }))
+    .map((d: any) => ({ time: d.time, value: d.measurements.dissolvedOxygen.value }))
 
   // Calculate averages
   const activeAlerts = mockWaterQualityAlerts.filter((a) => !a.resolved).length
@@ -1075,9 +1272,9 @@ function WaterQualityPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {MONITORING_STATIONS.map((station) => (
-                <SelectItem key={station.stationId} value={station.stationId}>
-                  {station.stationNameThai} ({station.province})
+              {Array.from(new Set(adaptedWaterQualityData.map((d: any) => d.stationId))).map((stationId) => (
+                <SelectItem key={stationId} value={stationId}>
+                  {stationId}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1103,7 +1300,7 @@ function WaterQualityPage() {
           />
           <Stat
             label="สถานีตรวจวัดทั้งหมด"
-            value={MONITORING_STATIONS.length}
+            value={new Set(adaptedWaterQualityData.map((d: any) => d.stationId)).size}
             hint="สถานีที่ใช้งานได้"
           />
         </div>
@@ -1334,7 +1531,7 @@ function WaterQualityPage() {
                         การแจ้งเตือน:
                       </h4>
                       <div className="space-y-1.5">
-                        {latestData.alerts.map((alert, i) => (
+                        {latestData.alerts.map((alert: any, i: number) => (
                           <div
                             key={i}
                             className="flex items-center gap-2 text-xs"
