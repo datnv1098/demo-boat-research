@@ -550,12 +550,30 @@ function DataQualityPage() {
 
 function CPUEPage() {
   const [species, setSpecies] = useState('ปลาทู')
-  const [area, setArea] = useState('ฝั่งอันดามันเหนือ (ระนอง-พังงา)')
+  const [area, setArea] = useState('พื้นที่ประมงอื่น')
 
-  // Filter and transform CPUE data for selected species and area
-  const series = excelConvertedCPUEData
+  // Filter and aggregate CPUE data for selected species and area
+  // Group by month and calculate average CPUE to handle duplicates
+  const rawData = excelConvertedCPUEData
     .filter((d) => d.species === species && d.fishingArea === area)
-    .map((d) => ({ x: d.month, y: d.cpue }))
+
+
+  const series = Object.entries(
+    rawData.reduce((acc, d) => {
+      if (!acc[d.month]) {
+        acc[d.month] = []
+      }
+      acc[d.month].push(d.cpue)
+      return acc
+    }, {} as Record<string, number[]>)
+  )
+    .map(([month, cpueValues]) => ({
+      x: month,
+      y: cpueValues.reduce((sum, val) => sum + val, 0) / cpueValues.length
+    }))
+    .sort((a, b) => a.x.localeCompare(b.x))
+
+
 
   // Only show species that have CPUE data
   const speciesOptions = [...new Set(excelConvertedCPUEData.map(d => d.species))].sort()
@@ -609,24 +627,110 @@ function CPUEPage() {
         </CardHeader>
         <CardContent>
           <div className="h-100">
-            <ResponsiveContainer width="100%" height="100%"  style={{ marginLeft: -10 }}>
-              <AreaChart
-                data={series}
-                margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+            <div style={{ marginBottom: '10px' }}>
+              <button
+                onClick={() => {
+                  // Force chart re-render by changing a state
+                  setSpecies(species);
+                }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '11px',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="x" />
-                <YAxis />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="y"
-                  name="CPUE (กก./ชม.)"
-                  fillOpacity={0.5}
-                  fill="#3b82f6"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+                🔄 Force Re-render
+              </button>
+            </div>
+
+            {/* Chart container with explicit dimensions */}
+            <div style={{
+              width: '100%',
+              height: '300px',
+              border: '1px solid #e2e8f0',
+              borderRadius: '4px',
+              padding: '10px',
+              background: 'white'
+            }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={series}
+                  margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
+                  key={`area-${species}-${area}-${series.length}-${Date.now()}`}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis
+                    dataKey="x"
+                    tick={{ fontSize: 11 }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    axisLine={{ stroke: '#e2e8f0' }}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => [Number(value).toFixed(2), 'CPUE (กก./ชม.)']}
+                    labelFormatter={(label) => `Tháng: ${label}`}
+                    contentStyle={{
+                      background: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px'
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="y"
+                    name="CPUE"
+                    fill="#3b82f6"
+                    fillOpacity={0.3}
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3 }}
+                    activeDot={{ r: 5, fill: '#1d4ed8' }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Fallback: Simple div-based visualization */}
+            <div style={{ marginTop: '10px', padding: '10px', background: '#f8fafc', borderRadius: '4px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>
+                📈 Raw Data Points ({series.length}):
+              </div>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
+                gap: '4px',
+                fontSize: '10px',
+                maxHeight: '100px',
+                overflowY: 'auto'
+              }}>
+                {series.slice(0, 12).map((point, i) => (
+                  <div key={i} style={{
+                    background: '#e2e8f0',
+                    padding: '4px',
+                    borderRadius: '2px',
+                    textAlign: 'center'
+                  }}>
+                    {point.x}: {point.y.toFixed(1)}
+                  </div>
+                ))}
+                {series.length > 12 && (
+                  <div style={{
+                    background: '#cbd5e1',
+                    padding: '4px',
+                    borderRadius: '2px',
+                    textAlign: 'center'
+                  }}>
+                    +{series.length - 12} more...
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
