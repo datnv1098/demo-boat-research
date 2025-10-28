@@ -606,12 +606,12 @@ function CPUEPage() {
       </div>
 
       <Card className="shadow-sm" style={{ marginLeft: '10px' }}>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-5">
           <CardTitle>อนุกรมเวลา CPUE – {species}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-100">
+            <ResponsiveContainer width="100%" height="100%"  style={{ marginLeft: -10 }}>
               <AreaChart
                 data={series}
                 margin={{ left: 8, right: 8, top: 8, bottom: 8 }}
@@ -624,7 +624,7 @@ function CPUEPage() {
                   type="monotone"
                   dataKey="y"
                   name="CPUE (กก./ชม.)"
-                  fillOpacity={0.3}
+                  fillOpacity={0.5}
                   fill="#3b82f6"
                 />
               </AreaChart>
