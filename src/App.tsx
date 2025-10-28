@@ -673,7 +673,7 @@ function CPUEPage() {
                     axisLine={{ stroke: '#e2e8f0' }}
                   />
                   <Tooltip
-                    formatter={(value, name) => [Number(value).toFixed(2), 'CPUE (กก./ชม.)']}
+                    formatter={(value) => [Number(value).toFixed(2), 'CPUE (กก./ชม.)']}
                     labelFormatter={(label) => `Tháng: ${label}`}
                     contentStyle={{
                       background: 'white',
