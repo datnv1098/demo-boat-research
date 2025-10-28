@@ -572,7 +572,7 @@ function CPUEPage() {
       />
 
       <div className="mb-4 flex items-center gap-4">
-        <div className="w-64">
+        <div className="w-72">
           <Label>สปีชีส์</Label>
           <Select defaultValue={species} onValueChange={setSpecies}>
             <SelectTrigger>
@@ -587,7 +587,7 @@ function CPUEPage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-64">
+        <div className="w-80">
           <Label>พื้นที่ประมง</Label>
           <Select defaultValue={area} onValueChange={setArea}>
             <SelectTrigger>
@@ -602,10 +602,10 @@ function CPUEPage() {
             </SelectContent>
           </Select>
         </div>
-        <Button>ดาวน์โหลด CSV</Button>
+        {/* <Button>ดาวน์โหลด CSV</Button> */}
       </div>
 
-      <Card className="shadow-sm">
+      <Card className="shadow-sm" style={{ marginLeft: '10px' }}>
         <CardHeader className="pb-2">
           <CardTitle>อนุกรมเวลา CPUE – {species}</CardTitle>
         </CardHeader>
@@ -661,17 +661,17 @@ function LengthBiologyPage() {
         icon={<Ruler className="h-6 w-6" />}
       />
 
-      <div className="mb-4 w-64">
-        <Label>สปีชีส์</Label>
+      <div className="mb-4 flex items-center gap-4">
+        <Label className="whitespace-nowrap">สปีชีส์</Label>
         <Select
           defaultValue={selectedSpecies}
           onValueChange={setSelectedSpecies}
         >
-          <SelectTrigger>
+          <SelectTrigger className="w-64">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {Object.keys(excelConvertedSpeciesInfo).map((species) => (
+            {[...new Set(excelConvertedLengthData.map(d => d.species))].sort().map((species) => (
               <SelectItem key={species} value={species}>
                 {species}
               </SelectItem>
@@ -1262,13 +1262,13 @@ function WaterQualityPage() {
           icon={<Droplets className="h-6 w-6" />}
         />
 
-        <div className="w-80" style={{ marginLeft: 5 }}>
-          <Label>สถานีตรวจวัด</Label>
+        <div className="flex items-center gap-4" style={{ marginLeft: 5 }}>
+          <Label className="whitespace-nowrap">สถานีตรวจวัด</Label>
           <Select
             defaultValue={selectedStation}
             onValueChange={setSelectedStation}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-64">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1286,7 +1286,7 @@ function WaterQualityPage() {
         <div className="grid grid-cols-4 gap-3">
           <Stat
             label="Water Quality Index"
-            value={latestData ? latestData.waterQualityIndex : 0}
+            value={latestData ? latestData.waterQualityIndex.toFixed(2) : 0}
             hint="คะแนนคุณภาพน้ำโดยรวม"
           />
           <Stat
@@ -1305,6 +1305,8 @@ function WaterQualityPage() {
           />
         </div>
 
+        {/* TEMPORARILY COMMENTED OUT - Water Quality Charts */}
+        {/*
         <div className="grid grid-cols-3 gap-4">
           <Card className="shadow-sm">
             <CardHeader className="pb-2">
@@ -1397,6 +1399,7 @@ function WaterQualityPage() {
             </CardContent>
           </Card>
         </div>
+        */}
 
         {latestData && (
           <div className="grid grid-cols-2 gap-4">
@@ -1647,6 +1650,44 @@ function DataMartAPIPage() {
                     คัดลอก
                   </Button>
                 </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle>การเชื่อมต่อระบบภายนอก</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-sm font-medium">กรมประมง</span>
+                  </div>
+                  <Badge className="bg-green-100 text-green-700">ออนไลน์</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm font-medium">VMS กองทัพเรือ</span>
+                  </div>
+                  <Badge className="bg-yellow-100 text-yellow-700">ซิงค์</Badge>
+                </div>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <span className="text-sm font-medium">สถาบันวิจัย</span>
+                  </div>
+                  <Badge className="bg-blue-100 text-blue-700">พร้อม</Badge>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 space-y-1">
+                <div>• API calls ในวันนี้: 1,247 ครั้ง</div>
+                <div>• อัตราการตอบสนอง: 98.7%</div>
+                <div>• ข้อมูลซิงค์ล่าสุด: 15 นาทีที่แล้ว</div>
               </div>
             </div>
           </CardContent>
