@@ -550,7 +550,7 @@ function DataQualityPage() {
 
 function CPUEPage() {
   const [species, setSpecies] = useState('ปลาทู')
-  const [area, setArea] = useState('พื้นที่ประมงอื่น')
+  const [area, setArea] = useState('อ่าวไทยตอนล่าง (ชุมพร-สงขลา)')
 
   // Filter and aggregate CPUE data for selected species and area
   // Group by month and calculate average CPUE to handle duplicates
