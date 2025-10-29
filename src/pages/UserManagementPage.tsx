@@ -47,8 +47,6 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState<AppUser[]>([])
   const [q, setQ] = useState('')
   const [role, setRole] = useState<'all' | AppUser['role']>('all')
-  const [zone, setZone] = useState<'all' | AppUser['zone']>('all')
-  const [area, setArea] = useState<'all' | AppUser['area']>('all')
   const [office, setOffice] = useState<'all' | string>('all')
   const [status, setStatus] = useState<'all' | AppUser['status']>('all')
 
@@ -87,13 +85,11 @@ export default function UserManagementPage() {
     const text = q.trim().toLowerCase()
     return users.filter((u) => (
       (role === 'all' || u.role === role) &&
-      (zone === 'all' || u.zone === zone) &&
-      (area === 'all' || u.area === area) &&
       (office === 'all' || u.office === office) &&
       (status === 'all' || u.status === status) &&
       (!text || u.name.toLowerCase().includes(text) || u.email.toLowerCase().includes(text))
     ))
-  }, [users, role, zone, area, office, status, q])
+  }, [users, role, office, status, q])
 
   // No-op logger (audit UI removed)
   function log(_action: string, _userId: string, _details?: string) {}
@@ -128,16 +124,6 @@ export default function UserManagementPage() {
     log('USER_ROLE', u.id, `Role ${u.role} -> ${r}`)
   }
 
-  function changeZone(u: AppUser, z: AppUser['zone']) {
-    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, zone: z } : x)))
-    log('USER_ZONE', u.id, `Zone ${u.zone} -> ${z}`)
-  }
-
-  function changeArea(u: AppUser, a: AppUser['area']) {
-    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, area: a } : x)))
-    log('USER_AREA', u.id, `Area ${u.area} -> ${a}`)
-  }
-
   function changeOffice(u: AppUser) {
     const v = prompt('New office', u.office)
     if (!v) return
@@ -151,8 +137,8 @@ export default function UserManagementPage() {
   }
 
   function exportUsersCSV() {
-    const header = ['ID','Name','Email','Role','Zone','Area','Office','Status','LastLogin']
-    const lines = [header.join(',')].concat(users.map((u) => [u.id,u.name,u.email,u.role,u.zone,u.area,u.office,u.status,u.lastLogin||''].join(',')))
+    const header = ['ID','Name','Email','Role','Office','Status','LastLogin']
+    const lines = [header.join(',')].concat(users.map((u) => [u.id,u.name,u.email,u.role,u.office,u.status,u.lastLogin||''].join(',')))
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -174,7 +160,7 @@ export default function UserManagementPage() {
           <div className="text-sm text-orange-600">No users found. Click "Load Demo" to seed 50 demo users.</div>
         )}
         {/* Filters & actions */}
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="md:col-span-2">
             <Label>Search</Label>
             <Input placeholder="Name or email" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -186,26 +172,6 @@ export default function UserManagementPage() {
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 {filterOptions.roles.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Zone</Label>
-            <Select value={zone} onValueChange={(v: any) => setZone(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {filterOptions.zones.map((z) => (<SelectItem key={z} value={z}>{z}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Area</Label>
-            <Select value={area} onValueChange={(v: any) => setArea(v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {filterOptions.areas.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
@@ -237,7 +203,7 @@ export default function UserManagementPage() {
 
         {/* Users table */}
         <Table
-          columns={["ID","Name","Email","Role","Zone","Area","Office","Status","Last Login","Actions"]}
+          columns={["ID","Name","Email","Role","Office","Status","Last Login","Actions"]}
           rows={filtered.map((u) => ([
             u.id,
             u.name,
@@ -247,22 +213,6 @@ export default function UserManagementPage() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {filterOptions.roles.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>,
-            <div key={u.id+"z"} className="min-w-[120px]">
-              <Select defaultValue={u.zone} onValueChange={(v: any) => changeZone(u, v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {filterOptions.zones.map((z) => (<SelectItem key={z} value={z}>{z}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>,
-            <div key={u.id+"a"} className="min-w-[120px]">
-              <Select defaultValue={u.area} onValueChange={(v: any) => changeArea(u, v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {filterOptions.areas.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>,
