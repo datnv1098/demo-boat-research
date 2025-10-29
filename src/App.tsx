@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Badge } from './components/ui/badge'
-import { Layers, ShieldCheck, Activity, Ruler, Map, BarChart2, Database, Users } from 'lucide-react'
+import { Layers, ShieldCheck, Activity, Ruler, Map, Droplets, BarChart2, Database, Users } from 'lucide-react'
 import DataQualityPage from './pages/DataQualityPage'
 import UserManagementPage from './pages/UserManagementPage'
 import CPUEPage from './pages/CPUEPage'
@@ -8,6 +8,7 @@ import LengthBiologyPage from './pages/LengthBiologyPage'
 import HotspotMapPage from './pages/HotspotMapPage'
 import ReportsPage from './pages/ReportsPage'
 import DataMartAPIPage from './pages/DataMartAPIPage'
+import WaterQualityPage from './pages/WaterQualityPage'
 
 function TopNav() {
   return (
@@ -27,6 +28,7 @@ const NAV = [
   { id: 'cpue', label: 'CPUE', icon: <Activity className="h-4 w-4" />, comp: <CPUEPage /> },
   { id: 'length', label: 'ความยาว & ชีวภาพ', icon: <Ruler className="h-4 w-4" />, comp: <LengthBiologyPage /> },
   { id: 'hotspot', label: 'แผนที่จุดร้อน', icon: <Map className="h-4 w-4" />, comp: <HotspotMapPage /> },
+  { id: 'waterquality', label: 'ตรวจสอบคุณภาพน้ำ', icon: <Droplets className="h-4 w-4" />, comp: <WaterQualityPage /> },
   { id: 'reports', label: 'รายงาน & แดชบอร์ด', icon: <BarChart2 className="h-4 w-4" />, comp: <ReportsPage /> },
   { id: 'datamart', label: 'คลังข้อมูล & API', icon: <Database className="h-4 w-4" />, comp: <DataMartAPIPage /> },
   { id: 'users', label: 'การจัดการผู้ใช้', icon: <Users className="h-4 w-4" />, comp: <UserManagementPage /> },

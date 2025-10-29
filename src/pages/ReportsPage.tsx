@@ -40,6 +40,31 @@ export default function ReportsPage() {
     return { date, value: typeof value === 'number' ? value : Number(value) || 0 }
   })
 
+  function toCSV<T extends Record<string, any>>(rows: T[], headers?: string[]) {
+    if (!rows.length) return ''
+    const cols = headers || Object.keys(rows[0])
+    const escape = (v: any) => {
+      const s = String(v ?? '')
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s
+    }
+    const head = cols.join(',')
+    const body = rows.map(r => cols.map(c => escape(r[c])).join(',')).join('\n')
+    return head + '\n' + body
+  }
+
+  function downloadCSV(filename: string, rows: any[], headers?: string[]) {
+    const csv = toCSV(rows, headers)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div>
       <Header title="แดชบอร์ด & รายงานอัตโนมัติ" desc="แดชบอร์ดแบบอินเตอร์แอคทีฟ และการส่งออก PDF/Excel/PowerPoint ตามกำหนดการ" icon={<BarChart2 className="h-6 w-6" />} />
@@ -97,6 +122,10 @@ export default function ReportsPage() {
                   {stationIds.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="ml-auto flex items-center gap-2">
+              <Button className="h-8 px-3 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => downloadCSV(`compare_stations_${param}.csv`, latestStationCompare, ['station','value'])}>ดาวน์โหลดเทียบสถานี (CSV)</Button>
+              <Button className="h-8 px-3 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => downloadCSV(`timeseries_${selectedStation}_${param}.csv`, timeSeries, ['date','value'])}>ดาวน์โหลดอนุกรมเวลา (CSV)</Button>
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
