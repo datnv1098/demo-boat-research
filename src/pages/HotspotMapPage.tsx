@@ -38,7 +38,7 @@ export default function HotspotMapPage() {
   const [percentileMode, setPercentileMode] = useState<'P90' | 'P95' | 'top10'>('P90')
 
   useEffect(() => {
-    fetch('/cmdec_mock.json')
+    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
       .then((r) => r.json())
       .then(setData)
       .catch((e) => setError(String(e)))

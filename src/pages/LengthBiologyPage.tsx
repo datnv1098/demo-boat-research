@@ -15,7 +15,7 @@ export default function LengthBiologyPage() {
   const [zone, setZone] = useState<string>('all')
 
   useEffect(() => {
-    fetch('/cmdec_mock.json')
+    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
       .then((r) => r.json())
       .then(setData)
       .catch((e) => setError(String(e)))

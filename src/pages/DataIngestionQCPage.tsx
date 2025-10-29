@@ -17,9 +17,9 @@ export default function DataIngestionQCPage() {
   const [accepted, setAccepted] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    fetch('/cmdec_mock.json')
+    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
       .then((r) => r.json())
-      .then((d) => parseAndSet(d))
+      .then(parseAndSet)
       .catch((e) => setError(String(e)))
   }, [])
 
@@ -214,8 +214,8 @@ export default function DataIngestionQCPage() {
           <div className="flex items-center gap-3">
             <input type="file" accept=".xlsx" onChange={onFileUpload} className="text-sm" />
             <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => {
-              fetch('/cmdec_mock.json').then(r=>r.json()).then(parseAndSet)
-            }}>โหลดข้อมูลสาธิต</Button>
+              fetch(new URL('../../cmdec_mock.json', import.meta.url).href).then(r=>r.json()).then(parseAndSet)
+            }}>{t('qc.loadDemo')}</Button>
           </div>
 
           <Table

@@ -14,7 +14,7 @@ export default function ReportsComparisonPage() {
   const [metric, setMetric] = useState<'cpue' | 'depth' | 'temp' | 'sal' | 'do' | 'ph' | 'lmean' | 'lfi'>('cpue')
 
   useEffect(() => {
-    fetch('/cmdec_mock.json')
+    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
       .then((r) => r.json())
       .then(setData)
       .catch((e) => setError(String(e)))
