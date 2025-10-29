@@ -1,911 +1,381 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Map } from 'lucide-react'
 import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
+import { useI18n } from '../lib/i18n'
 import { ThailandMap } from '../components/ThailandMap'
 
-interface HotspotCell { r: number; c: number; density: number; coordinates: { lat: number; lon: number } }
+interface HotspotCell {
+  r: number
+  c: number
+  cpue: number
+  coordinates: { lat: number; lon: number }
+  count: number
+}
 
-const mockHotspotGrid: HotspotCell[][] = [
-  [
-      {
-          "r": 0,
-          "c": 0,
-          "density": 64,
-          "coordinates": {
-              "lat": 6,
-              "lon": 95
-          }
-      },
-      {
-          "r": 0,
-          "c": 1,
-          "density": 49,
-          "coordinates": {
-              "lat": 6,
-              "lon": 95.66666666666667
-          }
-      },
-      {
-          "r": 0,
-          "c": 2,
-          "density": 79,
-          "coordinates": {
-              "lat": 6,
-              "lon": 96.33333333333333
-          }
-      },
-      {
-          "r": 0,
-          "c": 3,
-          "density": 37,
-          "coordinates": {
-              "lat": 6,
-              "lon": 97
-          }
-      },
-      {
-          "r": 0,
-          "c": 4,
-          "density": 91,
-          "coordinates": {
-              "lat": 6,
-              "lon": 97.66666666666667
-          }
-      },
-      {
-          "r": 0,
-          "c": 5,
-          "density": 25,
-          "coordinates": {
-              "lat": 6,
-              "lon": 98.33333333333333
-          }
-      },
-      {
-          "r": 0,
-          "c": 6,
-          "density": 38,
-          "coordinates": {
-              "lat": 6,
-              "lon": 99
-          }
-      },
-      {
-          "r": 0,
-          "c": 7,
-          "density": 63,
-          "coordinates": {
-              "lat": 6,
-              "lon": 99.66666666666667
-          }
-      },
-      {
-          "r": 0,
-          "c": 8,
-          "density": 29,
-          "coordinates": {
-              "lat": 6,
-              "lon": 100.33333333333333
-          }
-      },
-      {
-          "r": 0,
-          "c": 9,
-          "density": 10,
-          "coordinates": {
-              "lat": 6,
-              "lon": 101
-          }
-      },
-      {
-          "r": 0,
-          "c": 10,
-          "density": 77,
-          "coordinates": {
-              "lat": 6,
-              "lon": 101.66666666666667
-          }
-      },
-      {
-          "r": 0,
-          "c": 11,
-          "density": 46,
-          "coordinates": {
-              "lat": 6,
-              "lon": 102.33333333333333
-          }
-      }
-  ],
-  [
-      {
-          "r": 1,
-          "c": 0,
-          "density": 64,
-          "coordinates": {
-              "lat": 7,
-              "lon": 95
-          }
-      },
-      {
-          "r": 1,
-          "c": 1,
-          "density": 39,
-          "coordinates": {
-              "lat": 7,
-              "lon": 95.66666666666667
-          }
-      },
-      {
-          "r": 1,
-          "c": 2,
-          "density": 45,
-          "coordinates": {
-              "lat": 7,
-              "lon": 96.33333333333333
-          }
-      },
-      {
-          "r": 1,
-          "c": 3,
-          "density": 91,
-          "coordinates": {
-              "lat": 7,
-              "lon": 97
-          }
-      },
-      {
-          "r": 1,
-          "c": 4,
-          "density": 50,
-          "coordinates": {
-              "lat": 7,
-              "lon": 97.66666666666667
-          }
-      },
-      {
-          "r": 1,
-          "c": 5,
-          "density": 25,
-          "coordinates": {
-              "lat": 7,
-              "lon": 98.33333333333333
-          }
-      },
-      {
-          "r": 1,
-          "c": 6,
-          "density": 29,
-          "coordinates": {
-              "lat": 7,
-              "lon": 99
-          }
-      },
-      {
-          "r": 1,
-          "c": 7,
-          "density": 67,
-          "coordinates": {
-              "lat": 7,
-              "lon": 99.66666666666667
-          }
-      },
-      {
-          "r": 1,
-          "c": 8,
-          "density": 58,
-          "coordinates": {
-              "lat": 7,
-              "lon": 100.33333333333333
-          }
-      },
-      {
-          "r": 1,
-          "c": 9,
-          "density": 74,
-          "coordinates": {
-              "lat": 7,
-              "lon": 101
-          }
-      },
-      {
-          "r": 1,
-          "c": 10,
-          "density": 21,
-          "coordinates": {
-              "lat": 7,
-              "lon": 101.66666666666667
-          }
-      },
-      {
-          "r": 1,
-          "c": 11,
-          "density": 31,
-          "coordinates": {
-              "lat": 7,
-              "lon": 102.33333333333333
-          }
-      }
-  ],
-  [
-      {
-          "r": 2,
-          "c": 0,
-          "density": 76,
-          "coordinates": {
-              "lat": 8,
-              "lon": 95
-          }
-      },
-      {
-          "r": 2,
-          "c": 1,
-          "density": 94,
-          "coordinates": {
-              "lat": 8,
-              "lon": 95.66666666666667
-          }
-      },
-      {
-          "r": 2,
-          "c": 2,
-          "density": 57,
-          "coordinates": {
-              "lat": 8,
-              "lon": 96.33333333333333
-          }
-      },
-      {
-          "r": 2,
-          "c": 3,
-          "density": 22,
-          "coordinates": {
-              "lat": 8,
-              "lon": 97
-          }
-      },
-      {
-          "r": 2,
-          "c": 4,
-          "density": 81,
-          "coordinates": {
-              "lat": 8,
-              "lon": 97.66666666666667
-          }
-      },
-      {
-          "r": 2,
-          "c": 5,
-          "density": 21,
-          "coordinates": {
-              "lat": 8,
-              "lon": 98.33333333333333
-          }
-      },
-      {
-          "r": 2,
-          "c": 6,
-          "density": 24,
-          "coordinates": {
-              "lat": 8,
-              "lon": 99
-          }
-      },
-      {
-          "r": 2,
-          "c": 7,
-          "density": 58,
-          "coordinates": {
-              "lat": 8,
-              "lon": 99.66666666666667
-          }
-      },
-      {
-          "r": 2,
-          "c": 8,
-          "density": 17,
-          "coordinates": {
-              "lat": 8,
-              "lon": 100.33333333333333
-          }
-      },
-      {
-          "r": 2,
-          "c": 9,
-          "density": 69,
-          "coordinates": {
-              "lat": 8,
-              "lon": 101
-          }
-      },
-      {
-          "r": 2,
-          "c": 10,
-          "density": 66,
-          "coordinates": {
-              "lat": 8,
-              "lon": 101.66666666666667
-          }
-      },
-      {
-          "r": 2,
-          "c": 11,
-          "density": 21,
-          "coordinates": {
-              "lat": 8,
-              "lon": 102.33333333333333
-          }
-      }
-  ],
-  [
-      {
-          "r": 3,
-          "c": 0,
-          "density": 96,
-          "coordinates": {
-              "lat": 9,
-              "lon": 95
-          }
-      },
-      {
-          "r": 3,
-          "c": 1,
-          "density": 17,
-          "coordinates": {
-              "lat": 9,
-              "lon": 95.66666666666667
-          }
-      },
-      {
-          "r": 3,
-          "c": 2,
-          "density": 11,
-          "coordinates": {
-              "lat": 9,
-              "lon": 96.33333333333333
-          }
-      },
-      {
-          "r": 3,
-          "c": 3,
-          "density": 33,
-          "coordinates": {
-              "lat": 9,
-              "lon": 97
-          }
-      },
-      {
-          "r": 3,
-          "c": 4,
-          "density": 90,
-          "coordinates": {
-              "lat": 9,
-              "lon": 97.66666666666667
-          }
-      },
-      {
-          "r": 3,
-          "c": 5,
-          "density": 40,
-          "coordinates": {
-              "lat": 9,
-              "lon": 98.33333333333333
-          }
-      },
-      {
-          "r": 3,
-          "c": 6,
-          "density": 21,
-          "coordinates": {
-              "lat": 9,
-              "lon": 99
-          }
-      },
-      {
-          "r": 3,
-          "c": 7,
-          "density": 18,
-          "coordinates": {
-              "lat": 9,
-              "lon": 99.66666666666667
-          }
-      },
-      {
-          "r": 3,
-          "c": 8,
-          "density": 45,
-          "coordinates": {
-              "lat": 9,
-              "lon": 100.33333333333333
-          }
-      },
-      {
-          "r": 3,
-          "c": 9,
-          "density": 87,
-          "coordinates": {
-              "lat": 9,
-              "lon": 101
-          }
-      },
-      {
-          "r": 3,
-          "c": 10,
-          "density": 99,
-          "coordinates": {
-              "lat": 9,
-              "lon": 101.66666666666667
-          }
-      },
-      {
-          "r": 3,
-          "c": 11,
-          "density": 70,
-          "coordinates": {
-              "lat": 9,
-              "lon": 102.33333333333333
-          }
-      }
-  ],
-  [
-      {
-          "r": 4,
-          "c": 0,
-          "density": 23,
-          "coordinates": {
-              "lat": 10,
-              "lon": 95
-          }
-      },
-      {
-          "r": 4,
-          "c": 1,
-          "density": 22,
-          "coordinates": {
-              "lat": 10,
-              "lon": 95.66666666666667
-          }
-      },
-      {
-          "r": 4,
-          "c": 2,
-          "density": 43,
-          "coordinates": {
-              "lat": 10,
-              "lon": 96.33333333333333
-          }
-      },
-      {
-          "r": 4,
-          "c": 3,
-          "density": 25,
-          "coordinates": {
-              "lat": 10,
-              "lon": 97
-          }
-      },
-      {
-          "r": 4,
-          "c": 4,
-          "density": 89,
-          "coordinates": {
-              "lat": 10,
-              "lon": 97.66666666666667
-          }
-      },
-      {
-          "r": 4,
-          "c": 5,
-          "density": 21,
-          "coordinates": {
-              "lat": 10,
-              "lon": 98.33333333333333
-          }
-      },
-      {
-          "r": 4,
-          "c": 6,
-          "density": 47,
-          "coordinates": {
-              "lat": 10,
-              "lon": 99
-          }
-      },
-      {
-          "r": 4,
-          "c": 7,
-          "density": 79,
-          "coordinates": {
-              "lat": 10,
-              "lon": 99.66666666666667
-          }
-      },
-      {
-          "r": 4,
-          "c": 8,
-          "density": 21,
-          "coordinates": {
-              "lat": 10,
-              "lon": 100.33333333333333
-          }
-      },
-      {
-          "r": 4,
-          "c": 9,
-          "density": 36,
-          "coordinates": {
-              "lat": 10,
-              "lon": 101
-          }
-      },
-      {
-          "r": 4,
-          "c": 10,
-          "density": 39,
-          "coordinates": {
-              "lat": 10,
-              "lon": 101.66666666666667
-          }
-      },
-      {
-          "r": 4,
-          "c": 11,
-          "density": 39,
-          "coordinates": {
-              "lat": 10,
-              "lon": 102.33333333333333
-          }
-      }
-  ],
-  [
-      {
-          "r": 5,
-          "c": 0,
-          "density": 68,
-          "coordinates": {
-              "lat": 11,
-              "lon": 95
-          }
-      },
-      {
-          "r": 5,
-          "c": 1,
-          "density": 21,
-          "coordinates": {
-              "lat": 11,
-              "lon": 95.66666666666667
-          }
-      },
-      {
-          "r": 5,
-          "c": 2,
-          "density": 98,
-          "coordinates": {
-              "lat": 11,
-              "lon": 96.33333333333333
-          }
-      },
-      {
-          "r": 5,
-          "c": 3,
-          "density": 77,
-          "coordinates": {
-              "lat": 11,
-              "lon": 97
-          }
-      },
-      {
-          "r": 5,
-          "c": 4,
-          "density": 36,
-          "coordinates": {
-              "lat": 11,
-              "lon": 97.66666666666667
-          }
-      },
-      {
-          "r": 5,
-          "c": 5,
-          "density": 85,
-          "coordinates": {
-              "lat": 11,
-              "lon": 98.33333333333333
-          }
-      },
-      {
-          "r": 5,
-          "c": 6,
-          "density": 57,
-          "coordinates": {
-              "lat": 11,
-              "lon": 99
-          }
-      },
-      {
-          "r": 5,
-          "c": 7,
-          "density": 54,
-          "coordinates": {
-              "lat": 11,
-              "lon": 99.66666666666667
-          }
-      },
-      {
-          "r": 5,
-          "c": 8,
-          "density": 96,
-          "coordinates": {
-              "lat": 11,
-              "lon": 100.33333333333333
-          }
-      },
-      {
-          "r": 5,
-          "c": 9,
-          "density": 79,
-          "coordinates": {
-              "lat": 11,
-              "lon": 101
-          }
-      },
-      {
-          "r": 5,
-          "c": 10,
-          "density": 91,
-          "coordinates": {
-              "lat": 11,
-              "lon": 101.66666666666667
-          }
-      },
-      {
-          "r": 5,
-          "c": 11,
-          "density": 56,
-          "coordinates": {
-              "lat": 11,
-              "lon": 102.33333333333333
-          }
-      }
-  ],
-  [
-      {
-          "r": 6,
-          "c": 0,
-          "density": 91,
-          "coordinates": {
-              "lat": 12,
-              "lon": 95
-          }
-      },
-      {
-          "r": 6,
-          "c": 1,
-          "density": 28,
-          "coordinates": {
-              "lat": 12,
-              "lon": 95.66666666666667
-          }
-      },
-      {
-          "r": 6,
-          "c": 2,
-          "density": 18,
-          "coordinates": {
-              "lat": 12,
-              "lon": 96.33333333333333
-          }
-      },
-      {
-          "r": 6,
-          "c": 3,
-          "density": 45,
-          "coordinates": {
-              "lat": 12,
-              "lon": 97
-          }
-      },
-      {
-          "r": 6,
-          "c": 4,
-          "density": 62,
-          "coordinates": {
-              "lat": 12,
-              "lon": 97.66666666666667
-          }
-      },
-      {
-          "r": 6,
-          "c": 5,
-          "density": 59,
-          "coordinates": {
-              "lat": 12,
-              "lon": 98.33333333333333
-          }
-      },
-      {
-          "r": 6,
-          "c": 6,
-          "density": 69,
-          "coordinates": {
-              "lat": 12,
-              "lon": 99
-          }
-      },
-      {
-          "r": 6,
-          "c": 7,
-          "density": 85,
-          "coordinates": {
-              "lat": 12,
-              "lon": 99.66666666666667
-          }
-      },
-      {
-          "r": 6,
-          "c": 8,
-          "density": 19,
-          "coordinates": {
-              "lat": 12,
-              "lon": 100.33333333333333
-          }
-      },
-      {
-          "r": 6,
-          "c": 9,
-          "density": 39,
-          "coordinates": {
-              "lat": 12,
-              "lon": 101
-          }
-      },
-      {
-          "r": 6,
-          "c": 10,
-          "density": 34,
-          "coordinates": {
-              "lat": 12,
-              "lon": 101.66666666666667
-          }
-      },
-      {
-          "r": 6,
-          "c": 11,
-          "density": 86,
-          "coordinates": {
-              "lat": 12,
-              "lon": 102.33333333333333
-          }
-      }
-  ],
-  [
-      {
-          "r": 7,
-          "c": 0,
-          "density": 99,
-          "coordinates": {
-              "lat": 13,
-              "lon": 95
-          }
-      },
-      {
-          "r": 7,
-          "c": 1,
-          "density": 73,
-          "coordinates": {
-              "lat": 13,
-              "lon": 95.66666666666667
-          }
-      },
-      {
-          "r": 7,
-          "c": 2,
-          "density": 59,
-          "coordinates": {
-              "lat": 13,
-              "lon": 96.33333333333333
-          }
-      },
-      {
-          "r": 7,
-          "c": 3,
-          "density": 97,
-          "coordinates": {
-              "lat": 13,
-              "lon": 97
-          }
-      },
-      {
-          "r": 7,
-          "c": 4,
-          "density": 97,
-          "coordinates": {
-              "lat": 13,
-              "lon": 97.66666666666667
-          }
-      },
-      {
-          "r": 7,
-          "c": 5,
-          "density": 82,
-          "coordinates": {
-              "lat": 13,
-              "lon": 98.33333333333333
-          }
-      },
-      {
-          "r": 7,
-          "c": 6,
-          "density": 91,
-          "coordinates": {
-              "lat": 13,
-              "lon": 99
-          }
-      },
-      {
-          "r": 7,
-          "c": 7,
-          "density": 54,
-          "coordinates": {
-              "lat": 13,
-              "lon": 99.66666666666667
-          }
-      },
-      {
-          "r": 7,
-          "c": 8,
-          "density": 67,
-          "coordinates": {
-              "lat": 13,
-              "lon": 100.33333333333333
-          }
-      },
-      {
-          "r": 7,
-          "c": 9,
-          "density": 82,
-          "coordinates": {
-              "lat": 13,
-              "lon": 101
-          }
-      },
-      {
-          "r": 7,
-          "c": 10,
-          "density": 43,
-          "coordinates": {
-              "lat": 13,
-              "lon": 101.66666666666667
-          }
-      },
-      {
-          "r": 7,
-          "c": 11,
-          "density": 55,
-          "coordinates": {
-              "lat": 13,
-              "lon": 102.33333333333333
-          }
-      }
-  ]
-]
+interface StationData {
+  link: string
+  lat: number
+  lon: number
+  cpue: number
+  zone: string
+  depth: number
+  course: string
+  temp?: number
+  do?: number
+  salinity?: number
+  monthLabel: string
+  date: Date | null
+}
+
 export default function HotspotMapPage() {
-  const [month, setMonth] = useState('ส.ค.')
-  const thaiMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+  const [data, setData] = useState<any | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const { t, lang } = useI18n()
+
+  const [month, setMonth] = useState<string>('all')
+  const [zone, setZone] = useState<string>('all')
+  const [depthClass, setDepthClass] = useState<string>('all')
+  const [percentileMode, setPercentileMode] = useState<'P90' | 'P95' | 'top10'>('P90')
+
+  useEffect(() => {
+    fetch('/cmdec_mock.json')
+      .then((r) => r.json())
+      .then(setData)
+      .catch((e) => setError(String(e)))
+  }, [])
+
+  const { headerRows, catchRows, waterQlRows } = useMemo(() => {
+    if (!data) return { headerRows: [], catchRows: [], waterQlRows: [] }
+    const lower: Record<string, any> = {}
+    Object.keys(data).forEach((k) => (lower[k.toLowerCase()] = data[k]))
+    return {
+      headerRows: Array.isArray(lower['header']) ? lower['header'] : [],
+      catchRows: Array.isArray(lower['catch']) ? lower['catch'] : [],
+      waterQlRows: Array.isArray(lower['water_ql']) ? lower['water_ql'] : [],
+    }
+  }, [data])
+
+  function toMonthLabel(dateStr?: string) {
+    if (!dateStr) return 'N/A'
+    const d = new Date(dateStr)
+    const m = d.getMonth()
+    const year = d.getFullYear()
+    const thMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+    const enMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    return (lang === 'th' ? thMonths[m] : enMonths[m]) + ' ' + year
+  }
+
+  function depthToClass(depth?: number) {
+    if (depth == null || !isFinite(depth)) return 'N/A'
+    if (depth < 20) return '<20'
+    if (depth <= 40) return '20–40'
+    return '>40'
+  }
+
+  // Check if a location is in marine area (not on land)
+  // Primary check: depth > 0 means it's in the sea
+  function isMarineLocation(lat: number, lon: number, depth?: number): boolean {
+    // Must have valid depth > 0 (in sea)
+    if (depth == null || !isFinite(depth) || depth <= 0) return false
+    
+    // Check bounds for Thailand marine area (general bounds)
+    const marineLatMin = 5.0
+    const marineLatMax = 14.0
+    const marineLonMin = 95.0
+    const marineLonMax = 105.0
+    
+    if (!isFinite(lat) || !isFinite(lon)) return false
+    if (lat < marineLatMin || lat > marineLatMax) return false
+    if (lon < marineLonMin || lon > marineLonMax) return false
+    
+    // If depth > 0 and within marine bounds, it's considered marine
+    return true
+  }
+
+  // Calculate CPUE for each station
+  const stationData = useMemo(() => {
+    if (!headerRows.length) return []
+    const linkToHeader: Record<string, any> = {}
+    for (const h of headerRows) {
+      linkToHeader[String(h?.Link)] = h
+    }
+    const linkToCatchWeight: Record<string, number> = {}
+    for (const c of catchRows) {
+      const link = String(c?.Link)
+      const w = Number(c?.total_weight) || 0
+      linkToCatchWeight[link] = (linkToCatchWeight[link] || 0) + w
+    }
+    // Match Water_QL by Station and Date
+    const waterQlMap: Record<string, any> = {}
+    for (const w of waterQlRows) {
+      const key = `${String(w?.station)}_${String(w?.year)}_${String(w?.month)}`
+      waterQlMap[key] = w
+    }
+
+    const list: StationData[] = []
+    for (const link in linkToHeader) {
+      const h = linkToHeader[link]
+      const towMin = Number(h?.Tow)
+      const hours = isFinite(towMin) ? towMin / 60 : NaN
+      const totalCatch = linkToCatchWeight[link] || 0
+      const cpue = isFinite(hours) && hours > 0 ? totalCatch / hours : NaN
+      if (!isFinite(cpue)) continue
+
+      const date = h?.Date ? new Date(String(h?.Date)) : null
+      const month = date ? date.getMonth() + 1 : null
+      const year = date ? date.getFullYear() : null
+      const station = String(h?.Station || '')
+      const waterKey = `${station}_${year}_${month}`
+      const water = waterQlMap[waterKey]
+
+      const latStart = Number(h?.LatStart)
+      const lonStart = Number(h?.LongStart)
+      const lat = isFinite(latStart) ? latStart : NaN
+      const lon = isFinite(lonStart) ? lonStart : NaN
+
+      if (!isFinite(lat) || !isFinite(lon)) continue
+
+      list.push({
+        link,
+        lat,
+        lon,
+        cpue,
+        zone: String(h?.Zone || 'N/A'),
+        depth: Number(h?.Depth),
+        course: String(h?.Course || '-'),
+        temp: water ? Number(water?.Temp_surface) : undefined,
+        do: water ? Number(water?.DO_surface) : undefined,
+        salinity: water ? Number(water?.Salinity_surface) : undefined,
+        monthLabel: toMonthLabel(String(h?.Date)),
+        date,
+      })
+    }
+    return list
+  }, [headerRows, catchRows, waterQlRows, lang])
+
+  const filterOptions = useMemo(() => {
+    const zoneSet = new Set(stationData.map((r) => r.zone))
+    const zones = Array.from(zoneSet).sort()
+
+    // Sort months by date descending
+    const monthSet: Record<string, Date> = {}
+    for (const r of stationData) {
+      if (r.monthLabel && r.date && !monthSet[r.monthLabel]) {
+        monthSet[r.monthLabel] = r.date
+      }
+    }
+    const months = Object.keys(monthSet).sort((a, b) => {
+      const dateA = monthSet[a]
+      const dateB = monthSet[b]
+      if (!dateA || !dateB) return 0
+      return dateB.getTime() - dateA.getTime() // Descending
+    })
+
+    return { zones, months }
+  }, [stationData])
+
+  const filtered = useMemo(() => {
+    return stationData.filter((r) => {
+      // First check: must be in marine area (not on land)
+      if (!isMarineLocation(r.lat, r.lon, r.depth)) return false
+      
+      // Then apply other filters
+      return (
+        (month === 'all' || r.monthLabel === month) &&
+        (zone === 'all' || r.zone === zone) &&
+        (depthClass === 'all' || depthToClass(r.depth) === depthClass)
+      )
+    })
+  }, [stationData, month, zone, depthClass])
+
+  // Calculate percentile threshold
+  const percentileThreshold = useMemo(() => {
+    if (!filtered.length) return 0
+    const cpues = filtered.map((r) => r.cpue).filter((v) => isFinite(v)).sort((a, b) => a - b)
+    if (!cpues.length) return 0
+    if (percentileMode === 'P90') {
+      const idx = Math.floor(cpues.length * 0.9)
+      return cpues[idx] || 0
+    } else if (percentileMode === 'P95') {
+      const idx = Math.floor(cpues.length * 0.95)
+      return cpues[idx] || 0
+    } else {
+      // Top 10%
+      const idx = Math.floor(cpues.length * 0.9)
+      return cpues[idx] || 0
+    }
+  }, [filtered, percentileMode])
+
+  // Create grid for heatmap
+  const grid = useMemo(() => {
+    const binSize = 0.5 // degrees
+    const latMin = 6
+    const latMax = 13
+    const lonMin = 95
+    const lonMax = 102.5
+    const latBins = Math.ceil((latMax - latMin) / binSize)
+    const lonBins = Math.ceil((lonMax - lonMin) / binSize)
+    const acc: { cpue: number; count: number }[][] = Array.from({ length: latBins }, () =>
+      Array(lonBins).fill(null).map(() => ({ cpue: 0, count: 0 }))
+    )
+
+    for (const s of filtered) {
+      if (!isFinite(s.lat) || !isFinite(s.lon) || !isFinite(s.cpue)) continue
+      if (s.lat < latMin || s.lat > latMax || s.lon < lonMin || s.lon > lonMax) continue
+      const r = Math.min(latBins - 1, Math.max(0, Math.floor((s.lat - latMin) / binSize)))
+      const c = Math.min(lonBins - 1, Math.max(0, Math.floor((s.lon - lonMin) / binSize)))
+      acc[r][c].cpue += s.cpue
+      acc[r][c].count += 1
+    }
+
+    // Average CPUE per cell
+    const gridCells: HotspotCell[][] = acc.map((row, r) =>
+      row.map((cell, c) => ({
+        r,
+        c,
+        cpue: cell.count > 0 ? cell.cpue / cell.count : 0,
+        count: cell.count,
+        coordinates: {
+          lat: latMin + r * binSize + binSize / 2,
+          lon: lonMin + c * binSize + binSize / 2,
+        },
+      }))
+    )
+    return gridCells
+  }, [filtered])
+
+  // Hotspot stations (above threshold)
+  const hotspotStations = useMemo(() => {
+    return filtered.filter((s) => s.cpue >= percentileThreshold)
+  }, [filtered, percentileThreshold])
+
+  // Only PDF export is supported for Hotspot Map per requirement
+
+  function exportPDF() {
+    const win = window.open('', '_blank', 'width=1024,height=768')
+    if (!win) return
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Hotspot Map</title>
+      <style>body{font-family: 'Noto Sans Thai', Arial, sans-serif; padding: 20px;} table{border-collapse:collapse;width:100%;margin-top:20px;} th,td{border:1px solid #ddd;padding:8px;text-align:left;} th{background:#f5f5f5;}</style>
+      </head><body>
+      <h2>Hotspot Map - ${percentileMode}</h2>
+      <p>Filters: Month=${month}, Zone=${zone}, Depth=${depthClass}</p>
+      <p>Hotspot Stations: ${hotspotStations.length}</p>
+      <table>
+        <tr><th>Link</th><th>CPUE</th><th>Zone</th><th>Depth</th><th>Course</th><th>Temp</th><th>DO</th><th>Salinity</th></tr>
+        ${hotspotStations.slice(0, 50).map((s) => `
+          <tr>
+            <td>${s.link}</td>
+            <td>${s.cpue.toFixed(2)}</td>
+            <td>${s.zone}</td>
+            <td>${s.depth.toFixed(1)}</td>
+            <td>${s.course}</td>
+            <td>${s.temp?.toFixed(1) || '-'}</td>
+            <td>${s.do?.toFixed(2) || '-'}</td>
+            <td>${s.salinity?.toFixed(1) || '-'}</td>
+          </tr>
+        `).join('')}
+      </table>
+      <script>window.print();</script>
+      </body></html>`)
+    win.document.close()
+  }
+
+  const depthClasses = ['<20', '20–40', '>40']
+
+  // Map-only blacklist links to hide markers
+  const blacklistLinks: string[] = [
+    'em202510245','em202502159','em202506201','em202511252','em202402015','em202510246',
+    'em202401002','em202506199','em202511251','em202408084','em202505194','em202511256',
+    'em202412126','em202410106','em202405056','em202507209'
+  ]
 
   return (
     <div>
-      <Header title="แผนที่จุดร้อน" desc="อนุมานความหนาแน่น/CPUE มาตรฐานบนกริดเชิงพื้นที่-เวลา; จัดอันดับจุดร้อนตามสปีชีส์/เวลา" icon={<Map className="h-6 w-6" />} />
-      <div className="mb-4 w-56">
-        <Label>เดือน</Label>
-        <Select defaultValue={month} onValueChange={setMonth}>
+      <Header title={t('hot.title')} desc={t('hot.desc')} icon={<Map className="h-6 w-6" />} onExport={exportPDF} exportLabel={`${t('header.export')} PDF`} />
+      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
+      {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
+      {data && (
+        <div className="space-y-4">
+          {/* Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <Label>{t('hot.month')}</Label>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
+                  {filterOptions.months.map((m, idx) => {
+                    const monthStr = String(m)
+                    return <SelectItem key={idx} value={monthStr}>{monthStr}</SelectItem>
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('hot.zone') || 'Zone'}</Label>
+              <Select value={zone} onValueChange={setZone}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
+                  {filterOptions.zones.map((z, idx) => {
+                    const zoneStr = String(z)
+                    return <SelectItem key={idx} value={zoneStr}>{zoneStr}</SelectItem>
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('hot.depth') || 'Depth Class'}</Label>
+              <Select value={depthClass} onValueChange={setDepthClass}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
+                  {depthClasses.map((d) => (
+                    <SelectItem key={d} value={d}>{d} m</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('hot.percentile') || 'Hotspot Rank'}</Label>
+              <Select value={percentileMode} onValueChange={(v: any) => setPercentileMode(v)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            {thaiMonths.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                  <SelectItem value="P90">P90 (Top 10%)</SelectItem>
+                  <SelectItem value="P95">P95 (Top 5%)</SelectItem>
+                  <SelectItem value="top10">Top 10%</SelectItem>
           </SelectContent>
         </Select>
       </div>
-      <ThailandMap hotspotData={mockHotspotGrid as any} month={month} />
+          </div>
+
+          {/* Export controlled by Header's Export button */}
+
+          {/* Stats */}
+          <div className="flex gap-4 text-sm">
+            <div>
+              <span className="text-muted-foreground">{t('hot.totalStations') || 'Total Stations'}: </span>
+              <span className="font-medium">{filtered.length}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t('hot.hotspotCount') || 'Hotspots'}: </span>
+              <span className="font-medium text-red-600">{hotspotStations.length}</span>
+            </div>
+            <div>
+              <span className="text-muted-foreground">{t('hot.threshold') || 'Threshold'}: </span>
+              <span className="font-medium">{percentileThreshold.toFixed(2)} kg/hr</span>
+            </div>
+          </div>
+
+          {/* Map */}
+          <ThailandMap
+            hotspotData={grid as any}
+            stationData={hotspotStations}
+            month={month}
+            blacklistLinks={blacklistLinks}
+          />
+        </div>
+      )}
     </div>
   )
 }
-
-

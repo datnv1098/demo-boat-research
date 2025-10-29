@@ -1,127 +1,282 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Users } from 'lucide-react'
-import { Header, Table, Badge, Button, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, CardHeader, CardTitle } from '../components/common'
+import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Input, Button } from '../components/common'
+import { useI18n } from '../lib/i18n'
 
-type User = {
+interface AppUser {
   id: string
-  nameThai: string
+  name: string
   email: string
-  role: 'ผู้ดูแลระบบ' | 'นักวิจัย' | 'เจ้าหน้าที่ภาคสนาม'
-  status: 'ใช้งาน' | 'ระงับ'
-  organization?: string
-  createdAt: string
+  role: 'Admin' | 'Researcher' | 'DataEntry' | 'Viewer'
+  zone: 'Andaman' | 'Gulf' | 'National'
+  area: 'A1' | 'A2' | 'B1' | 'B2' | 'All'
+  office: string
+  status: 'Active' | 'Locked'
+  lastLogin?: string
+}
+
+function generateDemoUsers(count: number): AppUser[] {
+  const roles: AppUser['role'][] = ['Admin', 'Researcher', 'DataEntry', 'Viewer']
+  const zones: AppUser['zone'][] = ['National', 'Andaman', 'Gulf']
+  const areas: AppUser['area'][] = ['All', 'A1', 'A2', 'B1', 'B2']
+  const offices = ['HQ', 'Office-1', 'Office-2', 'Office-3', 'Office-4']
+  const users: AppUser[] = []
+  for (let i = 0; i < count; i++) {
+    const idx = i + 1
+    const role = roles[i % roles.length]
+    const zone = zones[i % zones.length]
+    const area = areas[i % areas.length]
+    const office = offices[i % offices.length]
+    users.push({
+      id: 'u' + String(100 + idx),
+      name: `Demo User ${idx}`,
+      email: `user${idx}@marine.gov`,
+      role,
+      zone,
+      area,
+      office,
+      status: i % 7 === 0 ? 'Locked' : 'Active',
+      lastLogin: `2025-10-${String((idx % 28) + 1).padStart(2, '0')} ${String((idx % 24)).padStart(2, '0')}:${String((idx * 3) % 60).padStart(2, '0')}`,
+    })
+  }
+  return users
 }
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState<User[]>([
-    { id: 'U001', nameThai: 'น.ส. สุชาดา ศรีวัฒน์', email: 'suchada@fisheries.go.th', role: 'ผู้ดูแลระบบ', status: 'ใช้งาน', organization: 'กรมประมง', createdAt: '2025-09-20' },
-    { id: 'U002', nameThai: 'นาย ธนกร พลชัย', email: 'thanakorn@research.ac.th', role: 'นักวิจัย', status: 'ใช้งาน', organization: 'สถาบันวิจัยทะเล', createdAt: '2025-07-11' },
-    { id: 'U003', nameThai: 'นาง มณีรัตน์ ชาญกิจ', email: 'maneerat@fisheries.go.th', role: 'เจ้าหน้าที่ภาคสนาม', status: 'ใช้งาน', organization: 'ศูนย์ประมงภาคใต้', createdAt: '2025-10-02' },
-    { id: 'U004', nameThai: 'น.ส. อรอนงค์ วัฒนกูล', email: 'oranong@navy.mil.th', role: 'นักวิจัย', status: 'ระงับ', organization: 'หน่วย VMS', createdAt: '2025-06-28' },
-  ])
-  const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState<'ทั้งหมด' | User['role']>('ทั้งหมด')
-  const [statusFilter, setStatusFilter] = useState<'ทั้งหมด' | User['status']>('ทั้งหมด')
+  const { t } = useI18n()
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [q, setQ] = useState('')
+  const [role, setRole] = useState<'all' | AppUser['role']>('all')
+  const [zone, setZone] = useState<'all' | AppUser['zone']>('all')
+  const [area, setArea] = useState<'all' | AppUser['area']>('all')
+  const [office, setOffice] = useState<'all' | string>('all')
+  const [status, setStatus] = useState<'all' | AppUser['status']>('all')
 
-  const filtered = users.filter(u => {
-    const q = search.trim().toLowerCase()
-    const okSearch = !q || u.nameThai.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-    const okRole = roleFilter === 'ทั้งหมด' || u.role === roleFilter
-    const okStatus = statusFilter === 'ทั้งหมด' || u.status === statusFilter
-    return okSearch && okRole && okStatus
-  })
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('app_users')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setUsers(parsed)
+        } else {
+          setUsers(generateDemoUsers(50))
+        }
+      } else {
+        setUsers(generateDemoUsers(50))
+      }
+    } catch {
+      setUsers(generateDemoUsers(50))
+    }
+  }, [])
 
-  const pageSize = 8
-  const [page, setPage] = useState(1)
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize)
+  useEffect(() => {
+    localStorage.setItem('app_users', JSON.stringify(users))
+  }, [users])
 
-  function toggleStatus(id: string) {
-    setUsers(users.map(u => u.id === id ? { ...u, status: u.status === 'ใช้งาน' ? 'ระงับ' : 'ใช้งาน' } : u))
+  const filterOptions = useMemo(() => {
+    const roles: AppUser['role'][] = ['Admin', 'Researcher', 'DataEntry', 'Viewer']
+    const zones: AppUser['zone'][] = ['National', 'Andaman', 'Gulf']
+    const areas: AppUser['area'][] = ['All', 'A1', 'A2', 'B1', 'B2']
+    const offices = Array.from(new Set(users.map((u) => u.office))).sort()
+    const statuses: AppUser['status'][] = ['Active', 'Locked']
+    return { roles, zones, areas, offices, statuses }
+  }, [users])
+
+  const filtered = useMemo(() => {
+    const text = q.trim().toLowerCase()
+    return users.filter((u) => (
+      (role === 'all' || u.role === role) &&
+      (zone === 'all' || u.zone === zone) &&
+      (area === 'all' || u.area === area) &&
+      (office === 'all' || u.office === office) &&
+      (status === 'all' || u.status === status) &&
+      (!text || u.name.toLowerCase().includes(text) || u.email.toLowerCase().includes(text))
+    ))
+  }, [users, role, zone, area, office, status, q])
+
+  // No-op logger (audit UI removed)
+  function log(_action: string, _userId: string, _details?: string) {}
+
+  function addUser() {
+    const name = prompt('Name')
+    if (!name) return
+    const email = prompt('Email')
+    if (!email) return
+    const newUser: AppUser = {
+      id: 'u' + Math.random().toString(36).slice(2, 7),
+      name,
+      email,
+      role: 'Viewer',
+      zone: 'National',
+      area: 'All',
+      office: 'HQ',
+      status: 'Active',
+      lastLogin: '',
+    }
+    setUsers((prev) => [newUser, ...prev])
+    log('USER_CREATE', newUser.id, `${newUser.name} (${newUser.email})`)
   }
 
-  function removeUser(id: string) {
-    setUsers(users.filter(u => u.id !== id))
+  function toggleLock(u: AppUser) {
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, status: x.status === 'Active' ? 'Locked' : 'Active' } : x)))
+    log('USER_STATUS', u.id, `Set status to ${u.status === 'Active' ? 'Locked' : 'Active'}`)
+  }
+
+  function changeRole(u: AppUser, r: AppUser['role']) {
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: r } : x)))
+    log('USER_ROLE', u.id, `Role ${u.role} -> ${r}`)
+  }
+
+  function changeZone(u: AppUser, z: AppUser['zone']) {
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, zone: z } : x)))
+    log('USER_ZONE', u.id, `Zone ${u.zone} -> ${z}`)
+  }
+
+  function changeArea(u: AppUser, a: AppUser['area']) {
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, area: a } : x)))
+    log('USER_AREA', u.id, `Area ${u.area} -> ${a}`)
+  }
+
+  function changeOffice(u: AppUser) {
+    const v = prompt('New office', u.office)
+    if (!v) return
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, office: v } : x)))
+    log('USER_OFFICE', u.id, `Office ${u.office} -> ${v}`)
+  }
+
+  function resetPassword(u: AppUser) {
+    alert(`Password reset link sent to ${u.email}`)
+    log('USER_RESET_PW', u.id)
+  }
+
+  function exportUsersCSV() {
+    const header = ['ID','Name','Email','Role','Zone','Area','Office','Status','LastLogin']
+    const lines = [header.join(',')].concat(users.map((u) => [u.id,u.name,u.email,u.role,u.zone,u.area,u.office,u.status,u.lastLogin||''].join(',')))
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'users.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function onTopbarExport() {
+    exportUsersCSV()
   }
 
   return (
     <div>
-      <Header
-        title="การจัดการผู้ใช้ระบบ"
-        desc="เพิ่ม/จัดการผู้ใช้ กำหนดบทบาทและสถานะสำหรับระบบวิเคราะห์ประมงไทย"
-        icon={<Users className="h-6 w-6" />}
-      />
-
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">ผู้ใช้ทั้งหมด</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-3 mb-3">
-            <Input placeholder="ค้นหาชื่อหรืออีเมล" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} className="w-64" />
-            <div className="ml-auto -mt-[10px] flex items-center gap-3">
-              <div>
-                <Label className="text-xs">บทบาท</Label>
-                <Select defaultValue={roleFilter} onValueChange={(v: any) => { setRoleFilter(v); setPage(1) }}>
-                  <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(['ทั้งหมด','ผู้ดูแลระบบ','นักวิจัย','เจ้าหน้าที่ภาคสนาม'] as const).map(r => (
-                      <SelectItem key={r} value={r}>{r}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">สถานะ</Label>
-                <Select defaultValue={statusFilter} onValueChange={(v: any) => { setStatusFilter(v); setPage(1) }}>
-                  <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {(['ทั้งหมด','ใช้งาน','ระงับ'] as const).map(s => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+      <Header title={t('users.title')} desc={t('users.desc')} icon={<Users className="h-6 w-6" />} onExport={onTopbarExport} />
+      <div className="space-y-4">
+        {users.length === 0 && (
+          <div className="text-sm text-orange-600">No users found. Click "Load Demo" to seed 50 demo users.</div>
+        )}
+        {/* Filters & actions */}
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+          <div className="md:col-span-2">
+            <Label>Search</Label>
+            <Input placeholder="Name or email" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-
-          <div className="h-[28rem] overflow-y-auto pr-2">
-            <Table
-              columns={[ 'ผู้ใช้', 'อีเมล', 'บทบาท', 'หน่วยงาน', 'สถานะ', 'สร้างเมื่อ', 'การกระทำ' ]}
-              rows={pageRows.map(u => [
-                <div key={`${u.id}-name`} className="flex flex-col">
-                  <span className="font-medium">{u.nameThai}</span>
-                  <span className="text-xs text-muted-foreground">ID: {u.id}</span>
-                </div>,
-                u.email,
-                <Badge key={`${u.id}-role`} className="bg-blue-100 text-blue-700">{u.role}</Badge>,
-                u.organization || '-',
-                <Badge key={`${u.id}-status`} className={u.status==='ใช้งาน' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}>{u.status}</Badge>,
-                u.createdAt,
-                <div key={`${u.id}-actions`} className="flex gap-2">
-                  <Button className="h-8 px-3 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => toggleStatus(u.id)}>
-                    {u.status==='ใช้งาน' ? 'ระงับ' : 'เปิดใช้งาน'}
-                  </Button>
-                  <Button className="h-8 px-3 text-xs bg-red-600 text-white hover:bg-red-700" onClick={() => removeUser(u.id)}>
-                    ลบ
-                  </Button>
-                </div>
-              ])}
-            />
+          <div>
+            <Label>Role</Label>
+            <Select value={role} onValueChange={(v: any) => setRole(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {filterOptions.roles.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+              </SelectContent>
+            </Select>
           </div>
-
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <div>
-              แสดง {pageRows.length} จากทั้งหมด {filtered.length} ผู้ใช้
-            </div>
-            <div className="flex items-center gap-2">
-              <Button className="h-8 px-3 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200" disabled={page===1} onClick={() => setPage(p => Math.max(1, p-1))}>ก่อนหน้า</Button>
-              <span>หน้า {page}/{totalPages}</span>
-              <Button className="h-8 px-3 text-xs bg-gray-100 text-gray-700 hover:bg-gray-200" disabled={page===totalPages} onClick={() => setPage(p => Math.min(totalPages, p+1))}>ถัดไป</Button>
-            </div>
+          <div>
+            <Label>Zone</Label>
+            <Select value={zone} onValueChange={(v: any) => setZone(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {filterOptions.zones.map((z) => (<SelectItem key={z} value={z}>{z}</SelectItem>))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <Label>Area</Label>
+            <Select value={area} onValueChange={(v: any) => setArea(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {filterOptions.areas.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Office</Label>
+            <Select value={office} onValueChange={(v: any) => setOffice(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {filterOptions.offices.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Status</Label>
+            <Select value={status} onValueChange={(v: any) => setStatus(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {filterOptions.statuses.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={addUser}>Add User</Button>
+          <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => setUsers(generateDemoUsers(50))}>Load Demo</Button>
+        </div>
+
+        {/* Users table */}
+        <Table
+          columns={["ID","Name","Email","Role","Zone","Area","Office","Status","Last Login","Actions"]}
+          rows={filtered.map((u) => ([
+            u.id,
+            u.name,
+            u.email,
+            <div key={u.id+"r"} className="min-w-[120px]">
+              <Select defaultValue={u.role} onValueChange={(v: any) => changeRole(u, v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {filterOptions.roles.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>,
+            <div key={u.id+"z"} className="min-w-[120px]">
+              <Select defaultValue={u.zone} onValueChange={(v: any) => changeZone(u, v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {filterOptions.zones.map((z) => (<SelectItem key={z} value={z}>{z}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>,
+            <div key={u.id+"a"} className="min-w-[120px]">
+              <Select defaultValue={u.area} onValueChange={(v: any) => changeArea(u, v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {filterOptions.areas.map((a) => (<SelectItem key={a} value={a}>{a}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>,
+            <button key={u.id+"o"} className="underline text-blue-600" onClick={() => changeOffice(u)}>{u.office}</button>,
+            <span className={u.status === 'Active' ? 'text-green-700' : 'text-red-600'}>{u.status}</span>,
+            u.lastLogin || '-',
+            <div className="flex gap-2">
+              <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => toggleLock(u)}>{u.status === 'Active' ? 'Lock' : 'Unlock'}</Button>
+              <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => resetPassword(u)}>Reset</Button>
+            </div>
+          ]))}
+          maxHeight="calc(100vh - 450px)"
+        />
+      </div>
     </div>
   )
 }

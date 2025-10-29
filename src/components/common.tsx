@@ -1,4 +1,5 @@
 import React from 'react'
+import { useI18n } from '../lib/i18n'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
@@ -6,7 +7,8 @@ import { Label } from '../components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 
-export function Header({ title, desc, icon }: { title: string; desc?: string; icon?: React.ReactNode }) {
+export function Header({ title, desc, icon, onExport, exportLabel }: { title: string; desc?: string; icon?: React.ReactNode; onExport?: () => void; exportLabel?: string }) {
+  const { t } = useI18n()
   return (
     <div className="mb-6 flex items-start justify-between">
       <div>
@@ -16,8 +18,8 @@ export function Header({ title, desc, icon }: { title: string; desc?: string; ic
         {desc && <p className="text-muted-foreground mt-1 max-w-3xl">{desc}</p>}
       </div>
       <div className="flex gap-2">
-        <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200">ส่งออก</Button>
-        <Button className="bg-blue-600 text-white hover:bg-blue-700">การกระทำด่วน</Button>
+        <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={onExport}>{exportLabel || t('header.export')}</Button>
+        <Button className="bg-blue-600 text-white hover:bg-blue-700">{t('header.quick')}</Button>
       </div>
     </div>
   )
@@ -35,9 +37,9 @@ export function Stat({ label, value, hint }: { label: string; value: string | nu
   )
 }
 
-export function Table({ columns, rows }: { columns: string[]; rows: (string | number | React.ReactNode)[][] }) {
+export function Table({ columns, rows, maxHeight }: { columns: string[]; rows: (string | number | React.ReactNode)[][]; maxHeight?: number | string }) {
   return (
-    <div className="overflow-auto rounded-xl border bg-background">
+    <div className="overflow-auto rounded-xl border bg-background" style={maxHeight !== undefined ? { maxHeight } : undefined}>
       <table className="w-full text-sm">
         <thead className="sticky top-0 bg-muted/50">
           <tr>

@@ -1,75 +1,324 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Activity } from 'lucide-react'
-import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Card, CardContent, CardHeader, CardTitle } from '../components/common'
-import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Area } from 'recharts'
-import { excelConvertedCPUEData, excelConvertedSpeciesInfo } from '../data/convertedExcelData'
-import { FISHING_AREAS } from '../data/mockData'
+import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button } from '../components/common'
+import { useI18n } from '../lib/i18n'
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 export default function CPUEPage() {
-  const [species, setSpecies] = useState('ปลาทู')
-  const [area, setArea] = useState('อ่าวไทยตอนล่าง (ชุมพร-สงขลา)')
+  const [data, setData] = useState<any | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const { t, lang } = useI18n()
 
-  const rawData = excelConvertedCPUEData.filter((d) => d.species === species && d.fishingArea === area)
-  const series = Object.entries(
-    rawData.reduce((acc, d) => {
-      if (!acc[d.month]) acc[d.month] = []
-      acc[d.month].push(d.cpue)
-      return acc
-    }, {} as Record<string, number[]>)
-  ).map(([month, cpueValues]) => ({ x: month, y: cpueValues.reduce((sum, val) => sum + val, 0) / cpueValues.length })).sort((a, b) => a.x.localeCompare(b.x))
+  const [area, setArea] = useState<string>('all')
+  const [zone, setZone] = useState<string>('all')
+  const [depthClass, setDepthClass] = useState<string>('all')
+  // removed month filter per request
+  const [periodMode, setPeriodMode] = useState<'month' | 'quarter'>('quarter')
+  const [quarter, setQuarter] = useState<string>('all')
 
-  const speciesOptions = [...new Set(excelConvertedCPUEData.map(d => d.species))].sort()
-  const areaOptions = Object.keys(FISHING_AREAS)
+  useEffect(() => {
+    fetch('/cmdec_mock.json')
+      .then((r) => r.json())
+      .then(setData)
+      .catch((e) => setError(String(e)))
+  }, [])
+
+  const { headerRows, catchRows } = useMemo(() => {
+    if (!data) return { headerRows: [], catchRows: [] }
+    const lower: Record<string, any> = {}
+    Object.keys(data).forEach((k) => (lower[k.toLowerCase()] = data[k]))
+    return {
+      headerRows: Array.isArray(lower['header']) ? lower['header'] : [],
+      catchRows: Array.isArray(lower['catch']) ? lower['catch'] : [],
+    }
+  }, [data])
+
+  function toMonthLabel(dateStr?: string) {
+    if (!dateStr) return 'N/A'
+    const d = new Date(dateStr)
+    const m = d.getMonth()
+    const year = d.getFullYear()
+    const thMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+    const enMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const label = (lang === 'th' ? thMonths[m] : enMonths[m]) + ' ' + year
+    return label
+  }
+
+  function toQuarterLabel(dateStr?: string) {
+    if (!dateStr) return 'N/A'
+    const d = new Date(dateStr)
+    const q = Math.floor(d.getMonth() / 3) + 1
+    const year = d.getFullYear()
+    return `Q${q} ${year}`
+  }
+
+  function depthToClass(depth?: number) {
+    if (depth == null || !isFinite(depth)) return 'N/A'
+    if (depth < 20) return '<20'
+    if (depth <= 40) return '20–40'
+    return '>40'
+  }
+
+  const cpueRecords = useMemo(() => {
+    if (!headerRows.length) return []
+    const linkToHeader = new Map<string, any>()
+    for (const h of headerRows) linkToHeader.set(String(h?.Link), h)
+    const linkToCatchWeight = new Map<string, number>()
+    const linkSpeciesSet = new Map<string, Set<string>>()
+    for (const c of catchRows) {
+      const link = String(c?.Link)
+      const w = Number(c?.total_weight) || 0
+      linkToCatchWeight.set(link, (linkToCatchWeight.get(link) || 0) + w)
+      const spp = String(c?.btscodename || 'ALL')
+      if (!linkSpeciesSet.has(link)) linkSpeciesSet.set(link, new Set<string>())
+      linkSpeciesSet.get(link)!.add(spp)
+    }
+    const list: any[] = []
+    for (const [link, h] of linkToHeader.entries()) {
+      const towMin = Number(h?.Tow)
+      const hours = isFinite(towMin) ? towMin / 60 : NaN
+      const totalCatch = linkToCatchWeight.get(link) || 0
+      const cpue = isFinite(hours) && hours > 0 ? totalCatch / hours : NaN
+      list.push({
+        link,
+        cpue,
+        totalCatch,
+        towMin,
+        area: h?.Area || 'N/A',
+        zone: h?.Zone || 'N/A',
+        depth: Number(h?.Depth),
+        depthClass: depthToClass(Number(h?.Depth)),
+        monthLabel: toMonthLabel(String(h?.Date)),
+        quarterLabel: toQuarterLabel(String(h?.Date)),
+        speciesSet: Array.from(linkSpeciesSet.get(link) || []),
+        station: h?.Station || '-',
+      })
+    }
+    return list.filter((r) => isFinite(r.cpue))
+  }, [headerRows, catchRows, lang])
+
+  const filterOptions = useMemo(() => {
+    const quarters = Array.from(new Set(cpueRecords.map((r) => r.quarterLabel))).sort()
+    const areas = Array.from(new Set(cpueRecords.map((r) => r.area))).sort()
+    const zones = Array.from(new Set(cpueRecords.map((r) => r.zone))).sort()
+    const depthClasses = ['<20','20–40','>40']
+    return { quarters, areas, zones, depthClasses }
+  }, [cpueRecords])
+
+  const filtered = useMemo(() => {
+    return cpueRecords.filter((r) => (
+      (area === 'all' || r.area === area) &&
+      (zone === 'all' || r.zone === zone) &&
+      (depthClass === 'all' || r.depthClass === depthClass) &&
+      (quarter === 'all' || r.quarterLabel === quarter)
+    ))
+  }, [cpueRecords, quarter, area, zone, depthClass])
+
+  const stats = useMemo(() => {
+    const values = filtered.map((r) => r.cpue).sort((a, b) => a - b)
+    const n = values.length
+    if (!n) return { n: 0 }
+    const mean = values.reduce((a, b) => a + b, 0) / n
+    const median = values[Math.floor(n / 2)]
+    const variance = values.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / n
+    const stddev = Math.sqrt(variance)
+    // P95
+    const p95 = values[Math.floor(n * 0.95)]
+    return { n, mean, median, stddev, p95 }
+  }, [filtered])
+
+  const withOutlier = useMemo(() => filtered.map((r) => ({ ...r, outlier: stats.p95 != null ? r.cpue > stats.p95 : false })), [filtered, stats])
+
+  const byMonth = useMemo(() => {
+    const map = new Map<string, { month: string; cpue: number; count: number }>()
+    for (const r of withOutlier) {
+      const key = r.monthLabel
+      const cur = map.get(key) || { month: key, cpue: 0, count: 0 }
+      cur.cpue += r.cpue
+      cur.count += 1
+      map.set(key, cur)
+    }
+    return Array.from(map.values()).map((x) => ({ month: x.month, cpue: x.count ? x.cpue / x.count : 0 }))
+  }, [withOutlier])
+
+  const byQuarter = useMemo(() => {
+    const map = new Map<string, { quarter: string; cpue: number; count: number }>()
+    for (const r of withOutlier) {
+      const key = r.quarterLabel
+      const cur = map.get(key) || { quarter: key, cpue: 0, count: 0 }
+      cur.cpue += r.cpue
+      cur.count += 1
+      map.set(key, cur)
+    }
+    return Array.from(map.values()).map((x) => ({ quarter: x.quarter, cpue: x.count ? x.cpue / x.count : 0 }))
+  }, [withOutlier])
+
+  const byDepth = useMemo(() => {
+    const map = new Map<string, { cls: string; cpue: number; count: number }>()
+    for (const r of withOutlier) {
+      const key = r.depthClass
+      const cur = map.get(key) || { cls: key, cpue: 0, count: 0 }
+      cur.cpue += r.cpue
+      cur.count += 1
+      map.set(key, cur)
+    }
+    return Array.from(map.values()).map((x) => ({ cls: x.cls, cpue: x.count ? x.cpue / x.count : 0 }))
+  }, [withOutlier])
+
+  function exportCpueCsv() {
+    const header = ['Link','Area','Zone','DepthClass','Month','Tow(min)','Catch(kg)','CPUE','Outlier']
+    const lines = [header.join(',')]
+    for (const r of withOutlier) {
+      const row = [r.link, r.area, r.zone, r.depthClass, r.monthLabel, r.towMin, r.totalCatch, r.cpue.toFixed(3), r.outlier ? 'Y' : '']
+      lines.push(row.join(','))
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'cpue.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function exportCpuePdf() {
+    const win = window.open('', '_blank', 'width=1024,height=768')
+    if (!win) return
+    const rowsHtml = withOutlier.slice(0, 500).map((r) => `<tr>
+      <td style="padding:6px;border:1px solid #ddd;">${r.link}</td>
+      <td style="padding:6px;border:1px solid #ddd;">${r.area}</td>
+      <td style="padding:6px;border:1px solid #ddd;">${r.zone}</td>
+      <td style="padding:6px;border:1px solid #ddd;">${r.depthClass}</td>
+      <td style="padding:6px;border:1px solid #ddd;">${r.monthLabel}</td>
+      <td style="padding:6px;border:1px solid #ddd;">${r.towMin}</td>
+      <td style="padding:6px;border:1px solid #ddd;">${r.totalCatch}</td>
+      <td style="padding:6px;border:1px solid #ddd;">${r.cpue.toFixed(3)}</td>
+      <td style="padding:6px;border:1px solid #ddd;">${r.outlier ? 'P95' : ''}</td>
+    </tr>`).join('')
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>CPUE</title>
+      <style>body{font-family: 'Noto Sans Thai', Arial, sans-serif;} table{border-collapse:collapse;width:100%;font-size:12px;} th{background:#f5f5f5;}</style>
+      </head><body>
+      <h2>CPUE</h2>
+      <table><thead><tr><th>Link</th><th>Area</th><th>Zone</th><th>Depth</th><th>Month</th><th>Tow(min)</th><th>Catch(kg)</th><th>CPUE</th><th>Outlier</th></tr></thead>
+      <tbody>${rowsHtml}</tbody></table>
+      <script>window.print();</script>
+      </body></html>`)
+    win.document.close()
+  }
 
   return (
     <div>
-      <Header title="CPUE มาตรฐาน" desc="คำนวณ CPUE ดิบและมาตรฐาน ค่าเฉลี่ยแบ่งชั้น และอนุกรมเวลาตามสปีชีส์/พื้นที่/ฤดูกาล" icon={<Activity className="h-6 w-6" />} />
-
-      <div className="mb-4 flex items-center gap-4">
-        <div className="w-72">
-          <Label>สปีชีส์</Label>
-          <Select defaultValue={species} onValueChange={setSpecies}>
+      <Header title={t('cpue.title')} desc={t('cpue.desc')} icon={<Activity className="h-6 w-6" />} />
+      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
+      {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
+      {data && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div>
+              <Label>Period</Label>
+              <Select defaultValue={periodMode} onValueChange={(v) => setPeriodMode(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="month">Month</SelectItem>
+                  <SelectItem value="quarter">Quarter</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Quarter</Label>
+              <Select defaultValue={quarter} onValueChange={setQuarter}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {speciesOptions.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s} ({(excelConvertedSpeciesInfo as any)[s]?.scientificName || 'N/A'})
-                </SelectItem>
-              ))}
+                  <SelectItem value="all">All</SelectItem>
+                  {filterOptions.quarters.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
             </SelectContent>
           </Select>
         </div>
-        <div className="w-80">
-          <Label>พื้นที่ประมง</Label>
+            <div>
+              <Label>Area</Label>
           <Select defaultValue={area} onValueChange={setArea}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              {areaOptions.slice(0, 6).map((a) => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+                  <SelectItem value="all">All</SelectItem>
+                  {filterOptions.areas.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Zone</Label>
+              <Select defaultValue={zone} onValueChange={setZone}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {filterOptions.zones.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Depth</Label>
+              <Select defaultValue={depthClass} onValueChange={setDepthClass}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  {filterOptions.depthClasses.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
       </div>
 
-      <Card className="shadow-sm" style={{ marginLeft: '10px' }}>
-        <CardHeader className="pb-5"><CardTitle>อนุกรมเวลา CPUE – {species}</CardTitle></CardHeader>
-        <CardContent>
-          <div className="h-100">
-            <div style={{ width: '100%', height: '300px', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '10px', background: 'white' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">CPUE by Period</div>
+              <div style={{ height: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={periodMode === 'month' ? byMonth : byQuarter}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey={periodMode === 'month' ? 'month' : 'quarter'} />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="cpue" stroke="#2563eb" strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">CPUE by Depth class</div>
+              <div style={{ height: 260 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={series} margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="x" tick={{ fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <YAxis tick={{ fontSize: 11 }} axisLine={{ stroke: '#e2e8f0' }} />
-                  <Tooltip formatter={(value: any) => [Number(value).toFixed(2), 'CPUE (กก./ชม.)']} />
-                  <Area type="monotone" dataKey="y" name="CPUE" fill="#3b82f6" fillOpacity={0.3} stroke="#3b82f6" strokeWidth={2} />
-                </AreaChart>
+                  <BarChart data={byDepth}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="cls" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="cpue" fill="#10b981" />
+                  </BarChart>
               </ResponsiveContainer>
+              </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+
+          <div className="flex gap-2">
+            <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={exportCpueCsv}>{t('header.export')} CSV</Button>
+            <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={exportCpuePdf}>{t('header.export')} PDF</Button>
+          </div>
+
+          <Table
+            columns={["Link","Area","Zone","Depth","Month","Tow(min)","Catch(kg)","CPUE","Outlier"]}
+            maxHeight={400}
+            rows={withOutlier.slice(0, 100).map((r) => [
+              r.link,
+              r.area,
+              r.zone,
+              r.depthClass,
+              r.monthLabel,
+              r.towMin,
+              r.totalCatch,
+              r.cpue.toFixed(3),
+              r.outlier ? 'P95' : '',
+            ])}
+          />
+        </div>
+      )}
     </div>
   )
 }
