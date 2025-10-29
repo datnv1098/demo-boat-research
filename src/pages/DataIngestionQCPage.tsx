@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 import { Header, Table, Button } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import * as XLSX from 'xlsx'
 import { THAILAND_BOUNDS } from '../data/thailandGeoData'
+import { Pie, Column, Bar } from '@ant-design/plots'
 
 export default function DataIngestionQCPage() {
   const [data, setData] = useState<any | null>(null)
@@ -15,6 +15,93 @@ export default function DataIngestionQCPage() {
   const { t } = useI18n()
   const [qcLogs, setQcLogs] = useState<any[]>([])
   const [accepted, setAccepted] = useState<Record<string, boolean>>({})
+
+  const statusData = useMemo(() => {
+    const counts: Record<string, number> = { ok: 0, warn: 0, accepted: 0, error: 0 }
+    for (const l of qcLogs) counts[l.status] = (counts[l.status] || 0) + 1
+    return [
+      { type: '✅ OK', value: counts.ok },
+      { type: '⚠️ Warn', value: counts.warn },
+      { type: '☑️ Accepted', value: counts.accepted },
+      { type: '❌ Error', value: counts.error },
+    ]
+  }, [qcLogs])
+
+  const issueData = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const l of qcLogs) {
+      for (const msg of l.issues || []) map.set(msg, (map.get(msg) || 0) + 1)
+    }
+    return Array.from(map.entries())
+      .map(([issue, count]) => ({ issue, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12)
+  }, [qcLogs])
+
+  // Top Issues by Zone (stacked)
+  const issueByZoneData = useMemo(() => {
+    // Build link -> zone map from headers
+    const linkToZone: Record<string, string> = {}
+    for (const h of headerRows) linkToZone[String(h?.Link || '')] = String(h?.Zone || 'Unknown')
+
+    // Count per (issue, zone)
+    const pairToCount = new Map<string, number>()
+    const issueToTotal = new Map<string, number>()
+    for (const l of qcLogs) {
+      const z = linkToZone[String(l.tripId)] || 'Unknown'
+      for (const msg of l.issues || []) {
+        const key = `${msg}__${z}`
+        pairToCount.set(key, (pairToCount.get(key) || 0) + 1)
+        issueToTotal.set(msg, (issueToTotal.get(msg) || 0) + 1)
+      }
+    }
+
+    // Keep only top 10 issues overall
+    const topIssues = new Set(
+      Array.from(issueToTotal.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([i]) => i)
+    )
+
+    const rows: { issue: string; zone: string; count: number }[] = []
+    for (const [key, count] of pairToCount.entries()) {
+      const [issue, zone] = key.split('__')
+      if (!topIssues.has(issue)) continue
+      rows.push({ issue, zone, count })
+    }
+    return rows.sort((a, b) => b.count - a.count)
+  }, [qcLogs, headerRows])
+
+  // Monthly status: aggregate qcLogs by month (YYYY-MM) from headerRows
+  const monthlyStatus = useMemo(() => {
+    const linkToMonth: Record<string, string> = {}
+    for (const h of headerRows) {
+      const link = String(h?.Link || '')
+      const d = h?.Date ? new Date(String(h?.Date)) : null
+      if (!link || !d || isNaN(d.getTime())) continue
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      linkToMonth[link] = ym
+    }
+    const map: Record<string, { ok: number; warn: number; accepted: number; error: number }> = {}
+    for (const l of qcLogs) {
+      const m = linkToMonth[String(l.tripId)] || 'Unknown'
+      if (!map[m]) map[m] = { ok: 0, warn: 0, accepted: 0, error: 0 }
+      const st: 'ok' | 'warn' | 'accepted' | 'error' = l.status
+      map[m][st] = (map[m][st] || 0) + 1
+    }
+    const rows: { month: string; status: string; count: number }[] = []
+    Object.keys(map)
+      .sort()
+      .forEach((m) => {
+        const v = map[m]
+        rows.push({ month: m, status: '✅ OK', count: v.ok })
+        rows.push({ month: m, status: '⚠️ Warn', count: v.warn })
+        rows.push({ month: m, status: '☑️ Accepted', count: v.accepted })
+        rows.push({ month: m, status: '❌ Error', count: v.error })
+      })
+    return rows
+  }, [qcLogs, headerRows])
 
   useEffect(() => {
     fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
@@ -151,21 +238,7 @@ export default function DataIngestionQCPage() {
     } catch {}
   }
 
-  function onFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const wb = XLSX.read(reader.result, { type: 'binary' })
-      const sheets: Record<string, any[]> = {}
-      for (const sn of wb.SheetNames) {
-        const ws = wb.Sheets[sn]
-        sheets[sn] = XLSX.utils.sheet_to_json(ws, { defval: null })
-      }
-      parseAndSet(sheets)
-    }
-    reader.readAsBinaryString(file)
-  }
+  // file upload removed
 
   function exportCsv() {
     const header = ['Trip','Status','Issues']
@@ -204,30 +277,57 @@ export default function DataIngestionQCPage() {
     win.document.close()
   }
 
+  function onTopbarExport() {
+    // OK -> CSV, Cancel -> PDF
+    const toCsv = window.confirm('Export CSV? (Cancel to export PDF)')
+    if (toCsv) exportCsv()
+    else exportPdf()
+  }
+
   return (
     <div>
-      <Header title={t('ing.title')} desc={t('ing.desc')} icon={<ClipboardCheck className="h-6 w-6" />} />
+      <Header title={t('ing.title')} desc={t('ing.desc')} icon={<ClipboardCheck className="h-6 w-6" />} onExport={onTopbarExport} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
       {data && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <input type="file" accept=".xlsx" onChange={onFileUpload} className="text-sm" />
-            <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => {
-              fetch(new URL('../../cmdec_mock.json', import.meta.url).href).then(r=>r.json()).then(parseAndSet)
-            }}>{t('qc.loadDemo')}</Button>
+          {/* Upload and manual demo load removed; page uses preloaded demo data */}
+
+          {/* Charts: Status Pie and Top Issues Column */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">QC Status</div>
+              <div style={{ height: 260 }}>
+                <Pie data={statusData} angleField="value" colorField="type" radius={0.85} label={{ type: 'inner', offset: '-30%', content: '{value}' }} interactions={[{ type: 'element-active' }]} />
+              </div>
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">Top Issues by Zone</div>
+              <div style={{ height: 260 }}>
+                <Column
+                  data={issueByZoneData}
+                  isStack
+                  xField="issue"
+                  yField="count"
+                  seriesField="zone"
+                  legend={{ position: 'top' }}
+                  xAxis={{ label: { autoHide: true, autoRotate: true } }}
+                  yAxis={{ label: null }}
+                  meta={{ count: { alias: 'Count' } }}
+                />
+              </div>
+            </div>
           </div>
 
-          <Table
-            columns={[t('table.sheet'), t('table.records')]}
-            rows={[["Header", headerRows.length], ["Catch", catchRows.length], ["Water_QL", waterRows.length], ["TS_Spp", tsSppRows.length]]}
-          />
+          {/* Monthly Status (stacked) */}
+          <div className="rounded-xl border bg-background p-3">
+            <div className="text-sm font-medium mb-2">สถานะ QC ตามเดือน (Monthly)</div>
+            <div style={{ height: 280 }}>
+              <Column data={monthlyStatus} isStack xField="month" yField="count" seriesField="status" xAxis={{ label: { autoHide: true, autoRotate: true } }} legend={{ position: 'top' }} />
+            </div>
+          </div>
 
           <div className="text-sm font-medium mt-4">บันทึกการตรวจสอบคุณภาพ (QC Logs)</div>
-          <div className="flex gap-2 mb-2">
-            <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={exportCsv}>{t('header.export')} CSV</Button>
-            <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={exportPdf}>{t('header.export')} PDF</Button>
-          </div>
           <div>
           <Table
             columns={["Trip", "สถานะ", "ปัญหา/หมายเหตุ", "การทำงาน"]}

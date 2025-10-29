@@ -3,7 +3,7 @@ import { Ruler } from 'lucide-react'
 import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button } from '../components/common'
 import { Table } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LineChart, Line } from 'recharts'
 
 export default function LengthBiologyPage() {
   const [data, setData] = useState<any | null>(null)
@@ -55,12 +55,12 @@ export default function LengthBiologyPage() {
   const linkToHeader = useMemo(() => {
     const map = new Map<string, any>()
     for (const h of headerRows) {
-      const dateStr = String(h?.Date)
-      const dateObj = dateStr ? new Date(dateStr) : null
+      const d = h?.Date ? new Date(String(h?.Date)) : null
+      const monthKey = d && !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}` : 'N/A'
       map.set(String(h?.Link), {
         zone: h?.Zone || 'N/A',
-        monthLabel: toMonthLabel(dateStr),
-        date: dateObj,
+        monthLabel: toMonthLabel(String(h?.Date)),
+        monthKey,
       })
     }
     return map
@@ -80,7 +80,7 @@ export default function LengthBiologyPage() {
         freqPairs: ft,
         zone: hdr.zone,
         monthLabel: hdr.monthLabel,
-        date: hdr.date,
+        monthKey: hdr.monthKey,
       })
     }
     return list
@@ -88,19 +88,7 @@ export default function LengthBiologyPage() {
 
   const filterOptions = useMemo(() => {
     const species = Array.from(new Set(lengthFreqData.map((r) => r.speciesCode))).sort()
-    // Sort months by date descending (newest first)
-    const monthSet = new Map<string, Date>()
-    for (const r of lengthFreqData) {
-      if (r.monthLabel && r.date && !monthSet.has(r.monthLabel)) {
-        monthSet.set(r.monthLabel, r.date)
-      }
-    }
-    const months = Array.from(monthSet.keys()).sort((a, b) => {
-      const dateA = monthSet.get(a)
-      const dateB = monthSet.get(b)
-      if (!dateA || !dateB) return 0
-      return dateB.getTime() - dateA.getTime() // Descending
-    })
+    const months = Array.from(new Set(lengthFreqData.map((r) => r.monthLabel))).sort()
     const zones = Array.from(new Set(lengthFreqData.map((r) => r.zone))).sort()
     return { species, months, zones }
   }, [lengthFreqData])
@@ -121,10 +109,8 @@ export default function LengthBiologyPage() {
     const lmean = weighted / total
     const sorted = freqPairs.flatMap((p) => Array(p.count).fill(p.length)).sort((a, b) => a - b)
     const l95 = sorted[Math.floor(sorted.length * 0.95)]
-    // %<Lm50: assume Lm50≈median or approximate
     const median = sorted[Math.floor(sorted.length * 0.5)]
     const pctJuvenile = (sorted.filter((l) => l < median).length / sorted.length) * 100
-    // LFI: Length-based Fish Index (simplified, using large fish %)
     const large = sorted.filter((l) => l > lmean * 1.5).length
     const lfi = (large / sorted.length) * 0.65
     return { lmean, l95, pctJuvenile, lfi, total }
@@ -164,6 +150,37 @@ export default function LengthBiologyPage() {
       </body></html>`)
     win.document.close()
   }
+
+  // Charts: Lmean by Month & by Zone
+  const lmeanByMonth = useMemo(() => {
+    const map = new Map<string, { monthKey: string; monthLabel: string; lsum: number; cnt: number }>()
+    for (const r of filtered) {
+      const s = calcBioIndices(r.freqPairs)
+      const key = r.monthKey || 'N/A'
+      const cur = map.get(key) || { monthKey: key, monthLabel: r.monthLabel || 'N/A', lsum: 0, cnt: 0 }
+      cur.lsum += s.lmean
+      cur.cnt += 1
+      map.set(key, cur)
+    }
+    const arr = Array.from(map.values())
+      .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+      .slice(-6)
+      .map((x) => ({ month: x.monthLabel, lmean: x.cnt ? x.lsum / x.cnt : 0 }))
+    return arr
+  }, [filtered])
+
+  const lmeanByZone = useMemo(() => {
+    const map = new Map<string, { zone: string; lsum: number; cnt: number }>()
+    for (const r of filtered) {
+      const s = calcBioIndices(r.freqPairs)
+      const key = r.zone || 'N/A'
+      const cur = map.get(key) || { zone: key, lsum: 0, cnt: 0 }
+      cur.lsum += s.lmean
+      cur.cnt += 1
+      map.set(key, cur)
+    }
+    return Array.from(map.values()).map((x) => ({ zone: x.zone, lmean: x.cnt ? x.lsum / x.cnt : 0 }))
+  }, [filtered])
 
   return (
     <div>
@@ -205,7 +222,7 @@ export default function LengthBiologyPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">Length Frequency Histogram</div>
               <div style={{ height: 300 }}>
@@ -219,29 +236,51 @@ export default function LengthBiologyPage() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-4 text-sm">
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">Lmean:</span>
-                  <span className="font-medium">{bioStats.lmean.toFixed(2)} cm</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">L95:</span>
-                  <span className="font-medium">{bioStats.l95.toFixed(2)} cm</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">%&lt;Lm50:</span>
-                  <span className={`font-medium ${warning ? 'text-orange-600' : ''}`}>{bioStats.pctJuvenile.toFixed(2)}%</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="text-muted-foreground">LFI:</span>
-                  <span className="font-medium">{bioStats.lfi.toFixed(3)}</span>
-                </div>
-                {warning && (
-                  <div className="text-orange-600 text-sm font-medium">⚠️ {lang === 'th' ? 'Tỷ lệ cá non cao (≥60%)' : 'High juvenile rate (≥60%)'}</div>
-                )}
-                <div className="ml-auto">
-                  <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs h-7 px-3" onClick={exportBioPdf}>{t('header.export')} PDF</Button>
-                </div>
+            </div>
+
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">Lmean by Zone</div>
+              <div style={{ height: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={lmeanByZone}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="zone" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="lmean" fill="#34d399" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">Lmean by Month</div>
+              <div style={{ height: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={lmeanByMonth}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" interval={0} angle={-20} textAnchor="end" height={60} />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="lmean" stroke="#2563eb" dot strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="rounded-xl border bg-background p-3 flex flex-col">
+              <div className="text-sm font-medium mb-2">Bio Indices</div>
+              <div className="space-y-2">
+                <div className="flex justify-between"><span>Lmean:</span><span className="font-medium">{bioStats.lmean.toFixed(2)} cm</span></div>
+                <div className="flex justify-between"><span>L95:</span><span className="font-medium">{bioStats.l95.toFixed(2)} cm</span></div>
+                <div className="flex justify-between"><span>%&lt;Lm50:</span><span className={`font-medium ${warning ? 'text-orange-600' : ''}`}>{bioStats.pctJuvenile.toFixed(2)}%</span></div>
+                <div className="flex justify-between"><span>LFI:</span><span className="font-medium">{bioStats.lfi.toFixed(3)}</span></div>
+                {warning && <div className="text-orange-600 text-sm font-medium">⚠️ Tỷ lệ cá non cao (≥60%)</div>}
+              </div>
+              <div className="mt-4 flex-1" />
+              <div className="pt-2 flex justify-end">
+                <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={exportBioPdf}>{t('header.export')} PDF</Button>
               </div>
             </div>
           </div>

@@ -165,6 +165,24 @@ export default function CPUEPage() {
     return Array.from(map.values()).map((x) => ({ cls: x.cls, cpue: x.count ? x.cpue / x.count : 0 }))
   }, [withOutlier])
 
+  // Histogram of CPUE distribution (based on filtered records)
+  const histData = useMemo(() => {
+    const values = filtered.map((r) => r.cpue)
+    if (!values.length) return [] as { bin: string; count: number }[]
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const bins = 12
+    const width = (max - min) / bins || 1
+    const counts = Array.from({ length: bins }, () => 0)
+    for (const v of values) {
+      let idx = Math.floor((v - min) / width)
+      if (idx >= bins) idx = bins - 1
+      if (idx < 0) idx = 0
+      counts[idx]++
+    }
+    return counts.map((c, i) => ({ bin: `${(min + i * width).toFixed(1)}–${(min + (i + 1) * width).toFixed(1)}`, count: c }))
+  }, [filtered])
+
   function exportCpueCsv() {
     const header = ['Link','Area','Zone','DepthClass','Month','Tow(min)','Catch(kg)','CPUE','Outlier']
     const lines = [header.join(',')]
@@ -180,32 +198,6 @@ export default function CPUEPage() {
     a.click()
     URL.revokeObjectURL(url)
   }
-
-  function exportCpuePdf() {
-    const win = window.open('', '_blank', 'width=1024,height=768')
-    if (!win) return
-    const rowsHtml = withOutlier.slice(0, 500).map((r) => `<tr>
-      <td style="padding:6px;border:1px solid #ddd;">${r.link}</td>
-      <td style="padding:6px;border:1px solid #ddd;">${r.area}</td>
-      <td style="padding:6px;border:1px solid #ddd;">${r.zone}</td>
-      <td style="padding:6px;border:1px solid #ddd;">${r.depthClass}</td>
-      <td style="padding:6px;border:1px solid #ddd;">${r.monthLabel}</td>
-      <td style="padding:6px;border:1px solid #ddd;">${r.towMin}</td>
-      <td style="padding:6px;border:1px solid #ddd;">${r.totalCatch}</td>
-      <td style="padding:6px;border:1px solid #ddd;">${r.cpue.toFixed(3)}</td>
-      <td style="padding:6px;border:1px solid #ddd;">${r.outlier ? 'P95' : ''}</td>
-    </tr>`).join('')
-    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>CPUE</title>
-      <style>body{font-family: 'Noto Sans Thai', Arial, sans-serif;} table{border-collapse:collapse;width:100%;font-size:12px;} th{background:#f5f5f5;}</style>
-      </head><body>
-      <h2>CPUE</h2>
-      <table><thead><tr><th>Link</th><th>Area</th><th>Zone</th><th>Depth</th><th>Month</th><th>Tow(min)</th><th>Catch(kg)</th><th>CPUE</th><th>Outlier</th></tr></thead>
-      <tbody>${rowsHtml}</tbody></table>
-      <script>window.print();</script>
-      </body></html>`)
-    win.document.close()
-  }
-
   return (
     <div>
       <Header title={t('cpue.title')} desc={t('cpue.desc')} icon={<Activity className="h-6 w-6" />} />
@@ -214,16 +206,6 @@ export default function CPUEPage() {
       {data && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <Label>Period</Label>
-              <Select defaultValue={periodMode} onValueChange={(v) => setPeriodMode(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="month">Month</SelectItem>
-                  <SelectItem value="quarter">Quarter</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div>
               <Label>Quarter</Label>
               <Select defaultValue={quarter} onValueChange={setQuarter}>
@@ -297,11 +279,20 @@ export default function CPUEPage() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={exportCpueCsv}>{t('header.export')} CSV</Button>
-            <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={exportCpuePdf}>{t('header.export')} PDF</Button>
+          <div className="rounded-xl border bg-background p-3">
+            <div className="text-sm font-medium mb-2">CPUE Distribution (Histogram)</div>
+            <div style={{ height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={histData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="bin" interval={0} angle={-25} textAnchor="end" height={60} />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#f59e0b" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-
           <Table
             columns={["Link","Area","Zone","Depth","Month","Tow(min)","Catch(kg)","CPUE","Outlier"]}
             maxHeight={400}

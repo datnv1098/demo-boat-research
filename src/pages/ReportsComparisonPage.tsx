@@ -3,6 +3,7 @@ import { BarChart2 } from 'lucide-react'
 import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
+import { BarChart, Bar } from 'recharts'
 
 export default function ReportsComparisonPage() {
   const [data, setData] = useState<any | null>(null)
@@ -147,6 +148,19 @@ export default function ReportsComparisonPage() {
     return rows
   }, [filtered, period])
 
+  // Top stations by avg CPUE
+  const topStations = useMemo(() => {
+    const map = new Map<string, number[]>()
+    for (const r of filtered) {
+      if (!map.has(r.station)) map.set(r.station, [])
+      map.get(r.station)!.push(r.cpue)
+    }
+    return Array.from(map.entries())
+      .map(([station, arr]) => ({ station, cpue: arr.reduce((a, b) => a + b, 0) / (arr.length || 1) }))
+      .sort((a, b) => b.cpue - a.cpue)
+      .slice(0, 5)
+  }, [filtered])
+
   function exportCSV() {
     const header = ['Period','CPUE mean','CPUE min','CPUE max','CPUE CV','Depth mean','Temp mean','Sal mean','DO mean','pH mean']
     const lines = [header.join(',')].concat(series.map((r) => [r.period, r.cpue_mean, r.cpue_min, r.cpue_max, r.cpue_cv, r.depth_mean, r.temp_mean, r.sal_mean, r.do_mean, r.ph_mean].join(',')))
@@ -239,6 +253,41 @@ export default function ReportsComparisonPage() {
             <div className="rounded-xl border p-3"><div className="text-muted-foreground">Salinity</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.sal_mean,0)/(series.length||1)).toFixed(1)}</div></div>
             <div className="rounded-xl border p-3"><div className="text-muted-foreground">DO</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.do_mean,0)/(series.length||1)).toFixed(2)}</div></div>
             <div className="rounded-xl border p-3"><div className="text-muted-foreground">pH</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.ph_mean,0)/(series.length||1)).toFixed(2)}</div></div>
+          </div>
+
+          {/* Environment and Top Stations (moved above Trend) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">{`Env (${metric.toUpperCase()}) by ${period}`}</div>
+              <div style={{ height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={series}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="period" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey={`${metric}_mean`}
+                         name={metric.toUpperCase()}
+                         fill={metric === 'temp' ? '#60a5fa' : metric === 'sal' ? '#34d399' : metric === 'do' ? '#f59e0b' : '#9ca3af'} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">Top Stations (Avg CPUE)</div>
+              <div style={{ height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topStations}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="station" interval={0} angle={-20} textAnchor="end" height={60} />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="cpue" name="CPUE" fill="#ef4444" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
 
           {/* Trend Chart */}
