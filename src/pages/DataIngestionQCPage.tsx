@@ -3,14 +3,11 @@ import { ClipboardCheck } from 'lucide-react'
 import { Header, Table, Button } from '../components/common'
 import { useI18n } from '../lib/i18n'
 import { THAILAND_BOUNDS } from '../data/thailandGeoData'
-import { Pie, Column, Bar } from '@ant-design/plots'
+import { Pie, Column } from '@ant-design/plots'
 
 export default function DataIngestionQCPage() {
   const [data, setData] = useState<any | null>(null)
   const [headerRows, setHeaderRows] = useState<any[]>([])
-  const [catchRows, setCatchRows] = useState<any[]>([])
-  const [waterRows, setWaterRows] = useState<any[]>([])
-  const [tsSppRows, setTsSppRows] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const { t } = useI18n()
   const [qcLogs, setQcLogs] = useState<any[]>([])
@@ -27,16 +24,7 @@ export default function DataIngestionQCPage() {
     ]
   }, [qcLogs])
 
-  const issueData = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const l of qcLogs) {
-      for (const msg of l.issues || []) map.set(msg, (map.get(msg) || 0) + 1)
-    }
-    return Array.from(map.entries())
-      .map(([issue, count]) => ({ issue, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 12)
-  }, [qcLogs])
+  // simple Top Issues removed in favor of zone-stacked version
 
   // Top Issues by Zone (stacked)
   const issueByZoneData = useMemo(() => {
@@ -124,9 +112,6 @@ export default function DataIngestionQCPage() {
     const wql = Array.isArray(lowerKeys['water_ql']) ? lowerKeys['water_ql'] : []
     const tss = Array.isArray(lowerKeys['ts_spp']) ? lowerKeys['ts_spp'] : []
     setHeaderRows(hdr)
-    setCatchRows(cth)
-    setWaterRows(wql)
-    setTsSppRows(tss)
     const logs = validateSheets(hdr, cth, wql, tss)
     setQcLogs(logs)
   }

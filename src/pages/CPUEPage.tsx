@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Activity } from 'lucide-react'
-import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button } from '../components/common'
+import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
@@ -13,7 +13,7 @@ export default function CPUEPage() {
   const [zone, setZone] = useState<string>('all')
   const [depthClass, setDepthClass] = useState<string>('all')
   // removed month filter per request
-  const [periodMode, setPeriodMode] = useState<'month' | 'quarter'>('quarter')
+  const [periodMode] = useState<'month' | 'quarter'>('quarter')
   const [quarter, setQuarter] = useState<string>('all')
 
   useEffect(() => {
@@ -183,21 +183,6 @@ export default function CPUEPage() {
     return counts.map((c, i) => ({ bin: `${(min + i * width).toFixed(1)}–${(min + (i + 1) * width).toFixed(1)}`, count: c }))
   }, [filtered])
 
-  function exportCpueCsv() {
-    const header = ['Link','Area','Zone','DepthClass','Month','Tow(min)','Catch(kg)','CPUE','Outlier']
-    const lines = [header.join(',')]
-    for (const r of withOutlier) {
-      const row = [r.link, r.area, r.zone, r.depthClass, r.monthLabel, r.towMin, r.totalCatch, r.cpue.toFixed(3), r.outlier ? 'Y' : '']
-      lines.push(row.join(','))
-    }
-    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'cpue.csv'
-    a.click()
-    URL.revokeObjectURL(url)
-  }
   return (
     <div>
       <Header title={t('cpue.title')} desc={t('cpue.desc')} icon={<Activity className="h-6 w-6" />} />
