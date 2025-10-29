@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import {
   LineChart,
   Line,
@@ -13,7 +13,7 @@ import {
   AreaChart,
   Area,
 } from 'recharts'
-import { Slider } from './components/ui/slider'
+// import { Slider } from './components/ui/slider'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { Badge } from './components/ui/badge'
@@ -31,7 +31,7 @@ import {
   SelectContent,
   SelectItem,
 } from './components/ui/select'
-import { Switch } from './components/ui/switch'
+// import { Switch } from './components/ui/switch'
 import { Label } from './components/ui/label'
 import {
   // Bell,
@@ -39,7 +39,7 @@ import {
   Map,
   Database,
   BarChart2,
-  Settings,
+  // Settings,
   // Bot,
   Activity,
   ShieldCheck,
@@ -61,7 +61,7 @@ import {
 
 // Import additional mock data for features not in Excel
 import {
-  mockSelectivityData,
+  // mockSelectivityData,
   // mockForecastData,
   // mockAlerts,
   FISHING_AREAS,
@@ -821,104 +821,6 @@ function LengthBiologyPage() {
   )
 }
 
-function GearSelectivityPage() {
-  return (
-    <div>
-      <Header
-        title="การคัดเลือกของเครื่องมือ"
-        desc="ประมาณค่า L50 และความชัน; จำลองการเปลี่ยนแปลงขนาดตาข่ายและผลกระทบต่อปลาเด็กและผลผลิต"
-        icon={<Settings className="h-6 w-6" />}
-      />
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <Stat label="L50 ประมาณ (ซม.)" value={22.5} />
-        <Stat label="ค่าความชัน (k)" value={0.28} />
-        <Stat label="% ปลาเด็ก (จำลอง)" value={'18.7%'} />
-      </div>
-      <Card className="shadow-sm mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle>เส้นโค้งการคัดเลือก</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={mockSelectivityData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="length"
-                  label={{
-                    value: 'ความยาว (ซม.)',
-                    position: 'insideBottom',
-                    offset: -2,
-                  }}
-                />
-                <YAxis
-                  label={{
-                    value: 'อัตราการเก็บ (%)',
-                    angle: -90,
-                    position: 'insideLeft',
-                  }}
-                />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="Mesh 40mm"
-                  name="ตาข่าย 40มม."
-                  stroke="#3b82f6"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Mesh 50mm"
-                  name="ตาข่าย 50มม."
-                  stroke="#10b981"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Mesh 60mm"
-                  name="ตาข่าย 60มม."
-                  stroke="#f59e0b"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="Cover Net"
-                  name="อวนคลุม"
-                  stroke="#ef4444"
-                  strokeDasharray="4 2"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle>จำลอง: ขนาดตาข่าย</CardTitle>
-          <CardDescription>
-            ปรับขนาดตาข่ายและดูตัวอย่างสัดส่วนปลาเด็กและดัชนีผลผลิต
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-6 items-center">
-            <div>
-              <Label>ขนาดตาข่าย (มม.)</Label>
-              <Slider
-                defaultValue={[45]}
-                max={80}
-                min={35}
-                step={5}
-                className="mt-2"
-              />
-            </div>
-            <Stat label="% ปลาเด็ก (จำลอง)" value="16.8%" />
-            <Stat label="ดัชนีผลผลิต" value="1.12×" />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 function HotspotMapPage() {
   const [month, setMonth] = useState('ส.ค.')
   const thaiMonths = [
@@ -962,132 +864,6 @@ function HotspotMapPage() {
     </div>
   )
 }
-
-function WhatIfSimulatorPage() {
-  const [seasonClosed, setSeasonClosed] = useState(false)
-  const [mesh, setMesh] = useState([45])
-  const [tow, setTow] = useState([60])
-  const simCPUE = useMemo(() => {
-    const base = 32
-    const m = mesh[0]
-    const t = tow[0]
-    const adj =
-      (100 - Math.abs(m - 45)) * 0.025 + (65 - Math.abs(t - 65)) * 0.018
-    return Array.from({ length: 8 }).map((_, i) => ({
-      week: `W${i + 1}`,
-      CPUE: +(base + adj + Math.sin(i / 1.8) * 3).toFixed(1),
-    }))
-  }, [mesh, tow])
-  const juvenile = useMemo(
-    () =>
-      +(
-        25 -
-        (mesh[0] - 45) * 0.4 +
-        (tow[0] - 65) * 0.08 +
-        (seasonClosed ? -4 : 0)
-      ).toFixed(1),
-    [mesh, tow, seasonClosed]
-  )
-
-  return (
-    <div>
-      <Header
-        title="ตัวจำลองการจัดการแบบ What-if"
-        desc="เปรียบเทียบสถานการณ์นโยบาย: การปิดฤดูกาล, ขนาดตาข่าย, ระยะเวลาลาก; ดูผลกระทบต่อ CPUE และส่วนแบ่งปลาเด็ก"
-        icon={<Settings className="h-6 w-6" />}
-      />
-
-      <Card className="shadow-sm mb-6">
-        <CardHeader>
-          <CardTitle>พารามิเตอร์สถานการณ์</CardTitle>
-          <CardDescription>
-            ปรับตัวควบคุมและสังเกตผลลัพธ์ที่จำลอง
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label>การปิดฤดูกาล</Label>
-              <Switch
-                checked={seasonClosed}
-                onCheckedChange={setSeasonClosed}
-              />
-            </div>
-            <div>
-              <Label>ขนาดตาข่าย (มม.)</Label>
-              <Slider
-                value={mesh}
-                onValueChange={setMesh}
-                min={35}
-                max={80}
-                step={5}
-                className="mt-2"
-              />
-              <div className="text-sm text-muted-foreground mt-1">
-                ปัจจุบัน: {mesh[0]} มม.
-              </div>
-            </div>
-            <div>
-              <Label>ระยะเวลาลาก (นาที)</Label>
-              <Slider
-                value={tow}
-                onValueChange={setTow}
-                min={30}
-                max={120}
-                step={5}
-                className="mt-2"
-              />
-              <div className="text-sm text-muted-foreground mt-1">
-                ปัจจุบัน: {tow[0]} นาที
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Stat label="% ปลาเด็ก (จำลอง)" value={`${juvenile}%`} />
-            <Stat
-              label="ดัชนีผลผลิต"
-              value={`${(1 + (mesh[0] - 45) * 0.015).toFixed(2)}×`}
-            />
-            <Stat label="สถานะปิดฤดู" value={seasonClosed ? 'ใช้' : 'ไม่ใช้'} />
-            <Stat
-              label="คะแนนสถานการณ์"
-              value={`${Math.max(
-                0,
-                85 + (seasonClosed ? 5 : 0) - Math.abs(mesh[0] - 45) * 0.3
-              ).toFixed(0)}/100`}
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle>CPUE จำลอง</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={simCPUE}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" />
-                <YAxis />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="CPUE"
-                  name="CPUE จำลอง"
-                  stroke="#3b82f6"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-
 
 function ReportsPage() {
   return (
@@ -1657,12 +1433,12 @@ const NAV = [
     icon: <Ruler className="h-4 w-4" />,
     comp: <LengthBiologyPage />,
   },
-  {
-    id: 'select',
-    label: 'การเลือกของเครื่องมือ',
-    icon: <Settings className="h-4 w-4" />,
-    comp: <GearSelectivityPage />,
-  },
+  // {
+  //   id: 'select',
+  //   label: 'การเลือกของเครื่องมือ',
+  //   icon: <Settings className="h-4 w-4" />,
+  //   comp: <GearSelectivityPage />,
+  // },
   {
     id: 'hotspot',
     label: 'แผนที่จุดร้อน',
@@ -1681,12 +1457,12 @@ const NAV = [
   //   icon: <Bell className="h-4 w-4" />,
   //   comp: <ForecastAlertsPage />,
   // },
-  {
-    id: 'whatif',
-    label: 'จำลองสถานการณ์',
-    icon: <Settings className="h-4 w-4" />,
-    comp: <WhatIfSimulatorPage />,
-  },
+  // {
+  //   id: 'whatif',
+  //   label: 'จำลองสถานการณ์',
+  //   icon: <Settings className="h-4 w-4" />,
+  //   comp: <WhatIfSimulatorPage />,
+  // },
   // {
   //   id: 'chatbot',
   //   label: 'AI Chatbot',
