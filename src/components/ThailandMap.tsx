@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MapContainer, TileLayer, GeoJSON, Circle, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, Circle } from 'react-leaflet'
 import { LatLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {

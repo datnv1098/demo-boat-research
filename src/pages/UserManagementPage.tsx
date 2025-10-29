@@ -59,27 +59,29 @@ export default function UserManagementPage() {
         <CardContent>
           <div className="flex flex-wrap items-center gap-3 mb-3">
             <Input placeholder="ค้นหาชื่อหรืออีเมล" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} className="w-64" />
-            <div>
-              <Label className="text-xs">บทบาท</Label>
-              <Select defaultValue={roleFilter} onValueChange={(v: any) => { setRoleFilter(v); setPage(1) }}>
-                <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(['ทั้งหมด','ผู้ดูแลระบบ','นักวิจัย','เจ้าหน้าที่ภาคสนาม'] as const).map(r => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">สถานะ</Label>
-              <Select defaultValue={statusFilter} onValueChange={(v: any) => { setStatusFilter(v); setPage(1) }}>
-                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(['ทั้งหมด','ใช้งาน','ระงับ'] as const).map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="ml-auto -mt-[10px] flex items-center gap-3">
+              <div>
+                <Label className="text-xs">บทบาท</Label>
+                <Select defaultValue={roleFilter} onValueChange={(v: any) => { setRoleFilter(v); setPage(1) }}>
+                  <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(['ทั้งหมด','ผู้ดูแลระบบ','นักวิจัย','เจ้าหน้าที่ภาคสนาม'] as const).map(r => (
+                      <SelectItem key={r} value={r}>{r}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">สถานะ</Label>
+                <Select defaultValue={statusFilter} onValueChange={(v: any) => { setStatusFilter(v); setPage(1) }}>
+                  <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(['ทั้งหมด','ใช้งาน','ระงับ'] as const).map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
