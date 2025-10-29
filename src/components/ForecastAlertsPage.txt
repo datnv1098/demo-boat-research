@@ -1,0 +1,75 @@
+function ForecastAlertsPage() {
+  const forecastData = mockForecastData.map((d) => ({
+    week: d.week,
+    CPUE: d.predicted,
+  }))
+
+  return (
+    <div>
+      <Header
+        title="พยากรณ์ & การแจ้งเตือนระยะสั้น"
+        desc="พยากรณ์ 1-4 สัปดาห์โดยใช้ข้อมูลประวัติ; เรียกการแจ้งเตือนสำหรับสัดส่วนปลาเด็กและความผิดปกติของ CPUE"
+        icon={<Bell className="h-6 w-6" />}
+      />
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <Stat label="ขอบเขตพยากรณ์" value="4 สัปดาห์" />
+        <Stat
+          label="การแจ้งเตือนที่ใช้งาน"
+          value={mockAlerts.filter((a) => a.status === 'active').length}
+        />
+        <Stat label="อัปเดตโมเดลล่าสุด" value="28 ก.ย. 2568" />
+      </div>
+      <Card className="shadow-sm mb-6">
+        <CardHeader className="pb-2">
+          <CardTitle>พยากรณ์ CPUE (สัปดาห์ข้างหน้า)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={forecastData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="week" />
+                <YAxis />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="CPUE"
+                  name="CPUE พยากรณ์"
+                  stroke="#3b82f6"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm">
+        <CardHeader className="pb-2">
+          <CardTitle>การแจ้งเตือน</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-80 overflow-y-auto pr-2">
+            <Table
+              columns={['ประเภท', 'ระดับ', 'พื้นที่', 'ข้อความ']}
+              rows={mockAlerts.map((a) => [
+                a.type,
+                <Badge
+                  key="lv"
+                  className={
+                    a.level === 'สูง' || a.level === 'สูงมาก'
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-amber-100 text-amber-800'
+                  }
+                >
+                  {a.level}
+                </Badge>,
+                a.area,
+                a.message,
+              ])}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

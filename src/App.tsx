@@ -34,13 +34,13 @@ import {
 import { Switch } from './components/ui/switch'
 import { Label } from './components/ui/label'
 import {
-  Bell,
+  // Bell,
   Download,
   Map,
   Database,
   BarChart2,
   Settings,
-  Bot,
+  // Bot,
   Activity,
   ShieldCheck,
   Ruler,
@@ -48,7 +48,6 @@ import {
   Zap,
   Droplets,
 } from 'lucide-react'
-import { Chatbot } from './components/Chatbot'
 import { ThailandMap } from './components/ThailandMap'
 
 // Import converted Excel data
@@ -63,8 +62,8 @@ import {
 // Import additional mock data for features not in Excel
 import {
   mockSelectivityData,
-  mockForecastData,
-  mockAlerts,
+  // mockForecastData,
+  // mockAlerts,
   FISHING_AREAS,
   mockWaterQualityAlerts,
 } from './data/mockData'
@@ -964,82 +963,6 @@ function HotspotMapPage() {
   )
 }
 
-function ForecastAlertsPage() {
-  const forecastData = mockForecastData.map((d) => ({
-    week: d.week,
-    CPUE: d.predicted,
-  }))
-
-  return (
-    <div>
-      <Header
-        title="พยากรณ์ & การแจ้งเตือนระยะสั้น"
-        desc="พยากรณ์ 1-4 สัปดาห์โดยใช้ข้อมูลประวัติ; เรียกการแจ้งเตือนสำหรับสัดส่วนปลาเด็กและความผิดปกติของ CPUE"
-        icon={<Bell className="h-6 w-6" />}
-      />
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <Stat label="ขอบเขตพยากรณ์" value="4 สัปดาห์" />
-        <Stat
-          label="การแจ้งเตือนที่ใช้งาน"
-          value={mockAlerts.filter((a) => a.status === 'active').length}
-        />
-        <Stat label="อัปเดตโมเดลล่าสุด" value="28 ก.ย. 2568" />
-      </div>
-      <Card className="shadow-sm mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle>พยากรณ์ CPUE (สัปดาห์ข้างหน้า)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={forecastData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="week" />
-                <YAxis />
-                <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="CPUE"
-                  name="CPUE พยากรณ์"
-                  stroke="#3b82f6"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle>การแจ้งเตือน</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-80 overflow-y-auto pr-2">
-            <Table
-              columns={['ประเภท', 'ระดับ', 'พื้นที่', 'ข้อความ']}
-              rows={mockAlerts.map((a) => [
-                a.type,
-                <Badge
-                  key="lv"
-                  className={
-                    a.level === 'สูง' || a.level === 'สูงมาก'
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-amber-100 text-amber-800'
-                  }
-                >
-                  {a.level}
-                </Badge>,
-                a.area,
-                a.message,
-              ])}
-            />
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
 function WhatIfSimulatorPage() {
   const [seasonClosed, setSeasonClosed] = useState(false)
   const [mesh, setMesh] = useState([45])
@@ -1164,99 +1087,7 @@ function WhatIfSimulatorPage() {
   )
 }
 
-function ChatbotPage() {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      text: 'สวัสดีครับ! ถามเกี่ยวกับสปีชีส์, พื้นที่ประมง, ฤดูกาล หรือตัวชี้วัดได้เลยครับ ผมจะหาข้อมูลและวาดกราฟให้',
-    },
-  ])
-  const [input, setInput] = useState('')
-  const onSend = () => {
-    if (!input.trim()) return
-    setMessages((m) => [
-      ...m,
-      { role: 'user', text: input },
-      { role: 'assistant', text: `ตอบ: ${input} (จำลอง)` },
-    ])
-    setInput('')
-  }
 
-  // Sample chart data from Thai species
-  const sampleChartData = excelConvertedCPUEData
-    .filter((d) => d.species === 'ปลาทู')
-    .slice(-8)
-    .map((d) => ({ x: d.month, y: d.cpue }))
-
-  return (
-    <div>
-      <Header
-        title="AI Chatbot ประมง"
-        desc="ถามตอบด้วยภาษาธรรมชาติพร้อมการอ้างอิงแหล่งที่มาและกราฟอัตโนมัติ (จำลอง)"
-        icon={<Bot className="h-6 w-6" />}
-      />
-      <div className="grid grid-cols-3 gap-6">
-        <Card className="shadow-sm col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle>บทสนทนา</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 overflow-auto rounded-md border p-4 bg-muted/30 space-y-3">
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`flex ${
-                    m.role === 'user' ? 'justify-end' : 'justify-start'
-                  }`}
-                >
-                  <div
-                    className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                      m.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background border'
-                    }`}
-                  >
-                    {m.text}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Input
-                placeholder="ถามเกี่ยวกับ CPUE ของปลาทูในอ่าวไทยตอนบน..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && onSend()}
-              />
-              <Button onClick={onSend}>ส่ง</Button>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle>กราฟตัวอย่าง</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={sampleChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="x" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="y" name="CPUE (กก./ชม.)" fill="#3b82f6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              แหล่งที่มา: ข้อมูลตัวอย่างปลาทู (จำลอง)
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
 
 function ReportsPage() {
   return (
