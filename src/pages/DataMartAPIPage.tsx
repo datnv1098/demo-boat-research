@@ -1,4 +1,3 @@
-import React from 'react'
 import { Database } from 'lucide-react'
 import { Header, Table, Badge, Button, Input, Label, Card, CardContent, CardHeader, CardTitle } from '../components/common'
 import { thaiFisheriesSchema, thaiAPIEndpoints } from '../data/apiSchema'

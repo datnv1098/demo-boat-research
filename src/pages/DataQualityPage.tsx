@@ -1,12 +1,9 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
-import { Header, Stat, Table, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
+import { Header, Table, Badge, Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/common'
 import { excelConvertedTrips } from '../data/convertedExcelData'
 
 export default function DataQualityPage() {
-  const totalTrips = excelConvertedTrips.length
-  const avgDQScore = Math.round(excelConvertedTrips.reduce((a, b) => a + b.dqScore, 0) / totalTrips)
-  const totalIssues = excelConvertedTrips.reduce((a, b) => a + (b.issues?.length || 0), 0)
 
   const [uploadedTrips, setUploadedTrips] = useState<any[]>([])
   const [acceptedIds, setAcceptedIds] = useState<Set<string>>(new Set())
@@ -59,8 +56,7 @@ export default function DataQualityPage() {
     monthlyDQ[month].totalDQ += trip.dqScore
     monthlyDQ[month].issues += trip.issues?.length || 0
   })
-  const monthlyDQData = Object.entries(monthlyDQ).sort(([a],[b]) => a.localeCompare(b)).map(([month, data]) => ({ month, avgDQ: Math.round(data.totalDQ / data.trips), issueRate: Math.round((data.issues / data.trips) * 100) / 100 }))
-  const issueChartData = totalIssues > 0 ? Object.entries(issueTypes).sort(([,a],[,b]) => b - a).slice(0,8).map(([issue, count]) => ({ issue: issue.length>20?issue.substring(0,20)+'...':issue, count, percentage: Math.round((count/totalIssues)*100) })) : []
+  // charts are rendered elsewhere; keep counts only for accept logic
 
   const combinedRows = [ ...excelConvertedTrips.map(t => ({ ...t, __source: 'API' })), ...uploadedTrips.map(t => ({ ...t, __source: 'อัปโหลด' })) ]
   const totalCombined = combinedRows.length

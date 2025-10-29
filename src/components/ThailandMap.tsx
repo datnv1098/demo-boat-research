@@ -202,20 +202,7 @@ export function ThailandMap({ hotspotData, month }: ThailandMapProps) {
                   weight: 1, // Giảm từ 2 xuống 1
                   stroke: true,
                 }}
-              >
-                {/* Popup hiển thị thông tin mật độ */}
-                <Popup>
-                  <div className="text-center">
-                    <h4 className="font-semibold">จุดร้อนประมง</h4>
-                    <p>
-                      ความหนาแน่น: <strong>{point.density}%</strong>
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      พิกัด: {point.lat.toFixed(2)}, {point.lng.toFixed(2)}
-                    </p>
-                  </div>
-                </Popup>
-              </Circle>
+              />
             ))}
         </MapContainer>
       </div>
