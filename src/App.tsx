@@ -1844,24 +1844,24 @@ const NAV = [
     icon: <Droplets className="h-4 w-4" />,
     comp: <WaterQualityPage />,
   },
-  {
-    id: 'forecast',
-    label: 'พยากรณ์ & แจ้งเตือน',
-    icon: <Bell className="h-4 w-4" />,
-    comp: <ForecastAlertsPage />,
-  },
+  // {
+  //   id: 'forecast',
+  //   label: 'พยากรณ์ & แจ้งเตือน',
+  //   icon: <Bell className="h-4 w-4" />,
+  //   comp: <ForecastAlertsPage />,
+  // },
   {
     id: 'whatif',
     label: 'จำลองสถานการณ์',
     icon: <Settings className="h-4 w-4" />,
     comp: <WhatIfSimulatorPage />,
   },
-  {
-    id: 'chatbot',
-    label: 'AI Chatbot',
-    icon: <Bot className="h-4 w-4" />,
-    comp: <ChatbotPage />,
-  },
+  // {
+  //   id: 'chatbot',
+  //   label: 'AI Chatbot',
+  //   icon: <Bot className="h-4 w-4" />,
+  //   comp: <ChatbotPage />,
+  // },
   {
     id: 'reports',
     label: 'รายงาน & แดชบอร์ด',
@@ -1914,8 +1914,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* Floating AI Chatbot */}
-      <Chatbot />
+      {/* <Chatbot /> */}
     </div>
   )
 }
