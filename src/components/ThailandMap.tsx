@@ -192,7 +192,7 @@ export function ThailandMap({ hotspotData, month }: ThailandMapProps) {
               <Circle
                 key={index}
                 center={[point.lat, point.lng]}
-                radius={Math.max(point.density * 1500, 4000)} // Tăng kích thước radius
+                radius={Math.max(point.density * 800, 2000)}
                 pathOptions={{
                   fillColor: `hsl(${200 - point.density * 1.5}, 75%, ${
                     65 - point.density * 0.4
