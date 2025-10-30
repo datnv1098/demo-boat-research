@@ -199,7 +199,7 @@ export default function ReportsComparisonPage() {
 
   return (
     <div>
-      <Header title={t('dash.title')} desc={t('dash.desc')} icon={<BarChart2 className="h-6 w-6" />} onExport={onTopbarExport} exportLabel={`${t('header.export')}`} />
+      <Header title={t('dash.title')} desc={t('dash.desc')} icon={<BarChart2 className="h-6 w-6" />} onExport={onTopbarExport} exportLabel={`${t('header.export')}`} sticky={true} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
       {data && (

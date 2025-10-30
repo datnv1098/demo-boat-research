@@ -154,7 +154,7 @@ export default function UserManagementPage() {
 
   return (
     <div>
-      <Header title={t('users.title')} desc={t('users.desc')} icon={<Users className="h-6 w-6" />} onExport={onTopbarExport} />
+      <Header title={t('users.title')} desc={t('users.desc')} icon={<Users className="h-6 w-6" />} onExport={onTopbarExport} sticky={true} />
       <div className="space-y-4">
         {users.length === 0 && (
           <div className="text-sm text-orange-600">No users found. Click "Load Demo" to seed 50 demo users.</div>
@@ -225,6 +225,7 @@ export default function UserManagementPage() {
             </div>
           ]))}
           maxHeight="calc(100vh - 450px)"
+          minHeight="420px"
         />
       </div>
     </div>

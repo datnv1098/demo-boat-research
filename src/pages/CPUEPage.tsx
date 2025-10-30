@@ -185,7 +185,7 @@ export default function CPUEPage() {
 
   return (
     <div>
-      <Header title={t('cpue.title')} desc={t('cpue.desc')} icon={<Activity className="h-6 w-6" />} />
+      <Header title={t('cpue.title')} desc={t('cpue.desc')} icon={<Activity className="h-6 w-6" />} sticky={true} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
       {data && (

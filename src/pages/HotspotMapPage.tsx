@@ -291,7 +291,7 @@ export default function HotspotMapPage() {
 
   return (
     <div>
-      <Header title={t('hot.title')} desc={t('hot.desc')} icon={<Map className="h-6 w-6" />} onExport={exportPDF} exportLabel={`${t('header.export')} PDF`} />
+      <Header title={t('hot.title')} desc={t('hot.desc')} icon={<Map className="h-6 w-6" />} onExport={exportPDF} exportLabel={`${t('header.export')} PDF`} sticky={true} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
       {data && (

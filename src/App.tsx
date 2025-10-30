@@ -12,7 +12,7 @@ import { I18nProvider, useI18n } from './lib/i18n'
 function TopNav() {
   const { lang, setLang } = useI18n()
   return (
-    <div className="h-14 border-b bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 flex items-center justify-between px-4">
+    <div className="h-14 border-b bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60 fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4">
       <div className="flex items-center gap-2">
         <Layers className="h-5 w-5" />
         <span className="font-semibold">ระบบวิเคราะห์ประมงไทย</span>
@@ -42,30 +42,36 @@ function AppInner() {
   const { t } = useI18n()
   const [active, setActive] = useState('ingestion-qc')
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 text-foreground">
+    <div className="h-screen bg-gradient-to-b from-background to-muted/20 text-foreground overflow-hidden">
       <TopNav />
-      <div className="max-w-[1300px] mx-auto px-6 py-6 grid grid-cols-[260px_1fr] gap-6">
-        <aside className="rounded-2xl border bg-background/60 backdrop-blur p-3">
-          <div className="text-xs uppercase text-muted-foreground px-2 mb-2">ฟีเจอร์</div>
-          <nav className="space-y-1">
-            {NAV.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActive(item.id)}
-                className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left transition ${
-                  active === item.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted'
-                }`}
-              >
-                {item.icon}
-                <span className="text-sm">{t(item.labelKey as any)}</span>
-              </button>
-            ))}
-          </nav>
-          <div className="mt-4 border-t pt-3 text-xs text-muted-foreground">โอเพ่นซอร์สเท่านั้น • อัปโหลดเป็นแบทช์</div>
+      <div className="flex h-[calc(100vh-56px)]">
+        {/* Fixed Sidebar - Completely Fixed */}
+        <aside className="w-[260px] flex-shrink-0 fixed left-0 top-14 h-[calc(100vh-56px)] p-6 pr-3 z-30">
+          <div className="rounded-2xl border bg-background/60 backdrop-blur p-3 h-full overflow-hidden flex flex-col">
+            <div className="text-xs uppercase text-muted-foreground px-2 mb-2">ฟีเจอร์</div>
+            <nav className="space-y-1 flex-1 overflow-hidden">
+              {NAV.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActive(item.id)}
+                  className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left transition ${
+                    active === item.id ? 'bg-primary/10 border border-primary/30' : 'hover:bg-muted'
+                  }`}
+                >
+                  {item.icon}
+                  <span className="text-sm">{t(item.labelKey as any)}</span>
+                </button>
+              ))}
+            </nav>
+            <div className="mt-4 border-t pt-3 text-xs text-muted-foreground flex-shrink-0">โอเพ่นซอร์สเท่านั้น • อัปโหลดเป็นแบทช์</div>
+          </div>
         </aside>
 
-        <main className="pb-12" style={{ maxHeight: 'calc(100vh - 110px)' }}>
-          {NAV.find((n) => n.id === active)?.comp}
+        {/* Scrollable Main Content */}
+        <main className="flex-1 overflow-y-auto p-6 pb-12 ml-[260px]">
+          <div className="max-w-[1040px] relative">
+            {NAV.find((n) => n.id === active)?.comp}
+          </div>
         </main>
       </div>
     </div>

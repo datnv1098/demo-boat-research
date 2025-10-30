@@ -271,7 +271,7 @@ export default function DataIngestionQCPage() {
 
   return (
     <div>
-      <Header title={t('ing.title')} desc={t('ing.desc')} icon={<ClipboardCheck className="h-6 w-6" />} onExport={onTopbarExport} />
+      <Header title={t('ing.title')} desc={t('ing.desc')} icon={<ClipboardCheck className="h-6 w-6" />} onExport={onTopbarExport} sticky={true} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
       {data && (
@@ -317,6 +317,7 @@ export default function DataIngestionQCPage() {
           <Table
             columns={["Trip", "สถานะ", "ปัญหา/หมายเหตุ", "การทำงาน"]}
             maxHeight={'calc(100vh - 600px)'}
+            minHeight="420px"
             rows={qcLogs.slice(0, 50).map((l) => [
               l.tripId,
               l.status === 'ok' ? '✅ ผ่าน' : l.status === 'warn' ? '⚠️ คำเตือน' : l.status === 'accepted' ? '☑️ ยอมรับเตือน' : '❌ ผิดพลาด',
