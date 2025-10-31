@@ -7,6 +7,7 @@ import CPUEPage from './pages/CPUEPage'
 import LengthBiologyPage from './pages/LengthBiologyPage'
 import ReportsComparisonPage from './pages/ReportsComparisonPage'
 import UserManagementPage from './pages/UserManagementPage'
+import WaterQualityPage from './pages/WaterQualityPage'
 import { I18nProvider, useI18n } from './lib/i18n'
 
 function TopNav() {
@@ -34,6 +35,7 @@ const NAV = [
   { id: 'cpue', labelKey: 'nav.cpue', icon: <Activity className="h-4 w-4" />, comp: <CPUEPage /> },
   { id: 'length-bio', labelKey: 'nav.lengthBio', icon: <Ruler className="h-4 w-4" />, comp: <LengthBiologyPage /> },
   { id: 'hotspot', labelKey: 'nav.hotspot', icon: <Map className="h-4 w-4" />, comp: <HotspotMapPage /> },
+  { id: 'water', labelKey: 'nav.water', icon: <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3C12 3 4.5 12.0882 4.5 16.5C4.5 19.5376 7.58172 22 12 22C16.4183 22 19.5 19.5376 19.5 16.5C19.5 12.0882 12 3 12 3Z" /></svg>, comp: <WaterQualityPage /> },
   { id: 'reports-compare', labelKey: 'nav.dashboard', icon: <BarChart2 className="h-4 w-4" />, comp: <ReportsComparisonPage /> },
   { id: 'users', labelKey: 'nav.users', icon: <Users className="h-4 w-4" />, comp: <UserManagementPage /> },
 ]

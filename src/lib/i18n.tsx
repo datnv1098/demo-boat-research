@@ -13,6 +13,7 @@ const translations: Translations = {
   'nav.users': { th: 'ผู้ใช้', en: 'Users' },
   'nav.system': { th: 'การตั้งค่า', en: 'Settings' },
   'nav.api': { th: 'การตั้งค่า API', en: 'API Config' },
+  'nav.water': { th: 'คุณภาพน้ำ', en: 'Water Quality' },
 
   'ing.title': { th: 'การนำเข้า & ตรวจสอบคุณภาพข้อมูล', en: 'Data Ingestion & Quality Control' },
   'ing.desc': { th: 'อัปโหลด Excel/API และตรวจสอบคุณภาพ (DQI, บันทึก QC)', en: 'Upload Excel/API and validate quality (DQI, QC logs)' },
