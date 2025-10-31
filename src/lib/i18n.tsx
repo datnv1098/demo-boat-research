@@ -75,6 +75,23 @@ const translations: Translations = {
   'map.popup.temp': { th: 'อุณหภูมิ', en: 'Temperature' },
   'map.popup.do': { th: 'ออกซิเจนละลาย', en: 'DO' },
   'map.popup.salinity': { th: 'ความเค็ม', en: 'Salinity' },
+  // Water Quality
+  'water.title': { th: 'คุณภาพน้ำ', en: 'Water Quality' },
+  'water.desc': { th: 'Dashboard các chỉ số môi trường theo tháng/khu vực', en: 'Dashboard various environmental indicators by month/zone' },
+  'water.month': { th: 'เดือน', en: 'Month' },
+  'water.zone': { th: 'โซน', en: 'Zone' },
+  'water.avgTemp': { th: 'อุณหภูมิเฉลี่ย (°C)', en: 'Avg Temp (°C)' },
+  'water.avgDO': { th: 'ออกซิเจนละลายเฉลี่ย (mg/L)', en: 'Avg DO (mg/L)' },
+  'water.avgpH': { th: 'pH เฉลี่ย', en: 'Avg pH' },
+  'water.avgSalinity': { th: 'ความเค็มเฉลี่ย (PSU)', en: 'Avg Salinity (PSU)' },
+  'water.radarChart': { th: 'เรดาร์: ค่าเฉลี่ยคุณภาพน้ำ', en: 'Radar: Water Quality mean' },
+  'water.lineChart': { th: 'กราฟเส้น: แนวโน้มคุณภาพน้ำ', en: 'Line: Water Quality Trend' },
+  'water.alertTable': { th: 'ตารางแจ้งเตือน (ค่าผิดปกติ)', en: 'Alert Table (Anomalies)' },
+  'water.export.placeholder': { th: 'การส่งออกไฟล์จะเพิ่มในภายหลัง (ต้องติดตั้ง SheetJS/xlsx)', en: 'Export functionality will be added later (requires SheetJS/xlsx)' },
+  'water.chart.temp': { th: 'อุณหภูมิ', en: 'Temp' },
+  'water.chart.do': { th: 'ออกซิเจนละลาย', en: 'DO' },
+  'water.chart.ph': { th: 'pH', en: 'pH' },
+  'water.chart.salinity': { th: 'ความเค็ม', en: 'Salinity' },
 }
 
 type I18nContextValue = {

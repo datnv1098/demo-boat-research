@@ -4,4 +4,4 @@ scp -i "key\EC2PEM.pem" -o StrictHostKeyChecking=no -r dist/* ubuntu@18.143.123.
 
 scp -i "key\EC2PEM.pem" -o StrictHostKeyChecking=no server.js ubuntu@18.143.123.61:/tmp/
 
-`ssh -i "key\EC2PEM.pem" -o StrictHostKeyChecking=no ubuntu@18.143.123.61 "sudo rm -rf /var/www/fisheries-demo/dist && sudo mkdir -p /var/www/fisheries-demo/dist && sudo mv /tmp/frontend/* /var/www/fisheries-demo/dist/ && sudo mv /tmp/server.js /var/www/fisheries-demo/ && pm2 restart fisheries-demo && sleep 3 && curl -I http://localhost:3000 && echo 'Application is running!'"
+ssh -i "key\EC2PEM.pem" -o StrictHostKeyChecking=no ubuntu@18.143.123.61 "sudo rm -rf /var/www/fisheries-demo/dist && sudo mkdir -p /var/www/fisheries-demo/dist && sudo mv /tmp/frontend/* /var/www/fisheries-demo/dist/ && sudo mv /tmp/server.js /var/www/fisheries-demo/ && pm2 restart fisheries-demo && sleep 3 && curl -I http://localhost:3000 && echo 'Application is running!'"
