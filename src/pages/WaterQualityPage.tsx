@@ -44,17 +44,17 @@ export default function WaterQualityPage() {
 
   // Collect filter options
   const filterOptions = useMemo(() => {
-    const months = Array.from(new Set(waterRows.map(r => r.Month || r.month)))
+    const months = Array.from(new Set(waterRows.map(r => r.Month)))
       .sort((a, b) => Number(a) - Number(b));
-    const zones = Array.from(new Set(waterRows.map(r => r.Zone || r.zone))).sort();
+    const zones = Array.from(new Set(waterRows.map(r => r.Zone))).sort();
     return { months, zones };
   }, [waterRows]);
 
   // Filtered data
   const filtered = useMemo(() => {
     return waterRows.filter((r) =>
-      (month === 'all' || String(r.Month || r.month) === month) &&
-      (zone === 'all' || String(r.Zone || r.zone) === zone)
+      (month === 'all' || String(r.Month) === month) &&
+      (zone === 'all' || String(r.Zone) === zone)
     );
   }, [waterRows, month, zone]);
 
@@ -81,7 +81,7 @@ export default function WaterQualityPage() {
   const trendByMonth = useMemo(() => {
     const map: Record<string, { month: string, temp: number[], do: number[], ph: number[], salinity: number[] }> = {};
     for (const r of waterRows) {
-      const m = String(r.Month || r.month);
+      const m = String(r.Month);
       if (!map[m]) map[m] = { month: m, temp: [], do: [], ph: [], salinity: [] };
       map[m].temp.push(Number(r.Temp));
       map[m].do.push(Number(r.DO));
@@ -193,7 +193,7 @@ export default function WaterQualityPage() {
         <div className="text-sm font-medium mb-2">{t('water.alertTable')}</div>
         <Table
           columns={tableColumns}
-          rows={alertRows.map((r) => [r.Month||r.month, r.Zone||r.zone, r.Temp, r.DO, r.pH, r.Salinity])}
+          rows={alertRows.map((r) => [r.Month, r.Zone, r.Temp, r.DO, r.pH, r.Salinity])}
           minHeight={420}
         />
       </div>
