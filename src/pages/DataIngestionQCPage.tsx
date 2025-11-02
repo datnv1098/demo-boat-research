@@ -3,7 +3,8 @@ import { ClipboardCheck } from 'lucide-react'
 import { Header, Table, Button } from '../components/common'
 import { useI18n } from '../lib/i18n'
 import { THAILAND_BOUNDS } from '../data/thailandGeoData'
-import { Pie, Column } from '@ant-design/plots'
+import Chart from 'react-apexcharts'
+import { ApexOptions } from 'apexcharts'
 
 export default function DataIngestionQCPage() {
   const [data, setData] = useState<any | null>(null)
@@ -90,6 +91,34 @@ export default function DataIngestionQCPage() {
       })
     return rows
   }, [qcLogs, headerRows])
+
+  // Transform data for ApexCharts stacked bar chart - Top Issues by Zone
+  const issueByZoneChartData = useMemo(() => {
+    const issues = Array.from(new Set(issueByZoneData.map(r => r.issue))).sort()
+    const zones = Array.from(new Set(issueByZoneData.map(r => r.zone))).sort()
+    const series = zones.map(zone => ({
+      name: zone,
+      data: issues.map(issue => {
+        const item = issueByZoneData.find(r => r.issue === issue && r.zone === zone)
+        return item ? item.count : 0
+      })
+    }))
+    return { issues, series }
+  }, [issueByZoneData])
+
+  // Transform data for ApexCharts stacked bar chart - Monthly Status
+  const monthlyStatusChartData = useMemo(() => {
+    const months = Array.from(new Set(monthlyStatus.map(r => r.month))).sort()
+    const statuses = ['✅ OK', '⚠️ Warn', '☑️ Accepted', '❌ Error']
+    const series = statuses.map(status => ({
+      name: status,
+      data: months.map(month => {
+        const item = monthlyStatus.find(r => r.month === month && r.status === status)
+        return item ? item.count : 0
+      })
+    }))
+    return { months, series }
+  }, [monthlyStatus])
 
   useEffect(() => {
     fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
@@ -283,22 +312,166 @@ export default function DataIngestionQCPage() {
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">QC Status</div>
               <div style={{ height: 260 }}>
-                <Pie data={statusData} angleField="value" colorField="type" radius={0.85} label={{ type: 'inner', offset: '-30%', content: '{value}' }} interactions={[{ type: 'element-active' }]} />
+                <Chart
+                  type="pie"
+                  height={260}
+                  series={statusData.map(d => d.value)}
+                  options={{
+                    chart: {
+                      type: 'pie',
+                      toolbar: { show: false },
+                      fontFamily: 'inherit',
+                    },
+                    labels: statusData.map(d => d.type),
+                    colors: ['#22c55e', '#f59e0b', '#3b82f6', '#ef4444'],
+                    legend: {
+                      position: 'bottom',
+                      fontSize: '12px',
+                    },
+                    dataLabels: {
+                      enabled: true,
+                      formatter: (val: number) => Math.round(val).toString(),
+                      style: {
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => Math.round(val).toString()
+                      }
+                    },
+                    plotOptions: {
+                      pie: {
+                        donut: {
+                          size: '0%',
+                        }
+                      }
+                    },
+                  } as ApexOptions}
+                />
               </div>
             </div>
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">Top Issues by Zone</div>
-              <div style={{ height: 260 }}>
-                <Column
-                  data={issueByZoneData}
-                  isStack
-                  xField="issue"
-                  yField="count"
-                  seriesField="zone"
-                  legend={{ position: 'top' }}
-                  xAxis={{ label: { autoHide: true, autoRotate: true } }}
-                  yAxis={{ label: null }}
-                  meta={{ count: { alias: 'Count' } }}
+              <div style={{ height: 320 }}>
+                <Chart
+                  type="bar"
+                  height={320}
+                  series={issueByZoneChartData.series}
+                  options={{
+                    chart: {
+                      type: 'bar',
+                      stacked: true,
+                      toolbar: { show: false },
+                      zoom: { enabled: false },
+                      fontFamily: 'inherit',
+                    },
+                    plotOptions: {
+                      bar: {
+                        borderRadius: 4,
+                        columnWidth: '55%',
+                        dataLabels: {
+                          position: 'top'
+                        }
+                      }
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    stroke: {
+                      show: false
+                    },
+                    xaxis: {
+                      categories: issueByZoneChartData.issues.map(issue => {
+                        // Truncate long text and add ellipsis
+                        const maxLength = 25
+                        if (issue.length > maxLength) {
+                          return issue.substring(0, maxLength) + '...'
+                        }
+                        return issue
+                      }),
+                      labels: {
+                        style: {
+                          fontSize: '10px',
+                          fontWeight: 500,
+                        },
+                        rotate: -45,
+                        rotateAlways: true,
+                        maxHeight: 80,
+                        trim: true,
+                      },
+                      axisTicks: {
+                        show: true
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => Math.round(val).toString()
+                      },
+                      title: {
+                        text: 'Count',
+                        style: {
+                          fontSize: '12px',
+                          fontWeight: 600,
+                        }
+                      }
+                    },
+                    colors: ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6'],
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      padding: {
+                        left: 10,
+                        right: 10
+                      }
+                    },
+                    legend: {
+                      position: 'top',
+                      fontSize: '11px',
+                      itemMargin: {
+                        horizontal: 10,
+                        vertical: 5
+                      },
+                      markers: {
+                        width: 10,
+                        height: 10,
+                        radius: 5
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => Math.round(val).toString()
+                      },
+                      x: {
+                        formatter: (val: number) => {
+                          // Show full text in tooltip
+                          return issueByZoneChartData.issues[val - 1] || ''
+                        }
+                      }
+                    },
+                  } as ApexOptions}
                 />
               </div>
             </div>
@@ -308,7 +481,78 @@ export default function DataIngestionQCPage() {
           <div className="rounded-xl border bg-background p-3">
             <div className="text-sm font-medium mb-2">สถานะ QC ตามเดือน (Monthly)</div>
             <div style={{ height: 280 }}>
-              <Column data={monthlyStatus} isStack xField="month" yField="count" seriesField="status" xAxis={{ label: { autoHide: true, autoRotate: true } }} legend={{ position: 'top' }} />
+              <Chart
+                type="bar"
+                height={280}
+                series={monthlyStatusChartData.series}
+                options={{
+                  chart: {
+                    type: 'bar',
+                    stacked: true,
+                    toolbar: { show: false },
+                    zoom: { enabled: false },
+                    fontFamily: 'inherit',
+                  },
+                  plotOptions: {
+                    bar: {
+                      borderRadius: 4,
+                      columnWidth: '60%',
+                    }
+                  },
+                  dataLabels: {
+                    enabled: false
+                  },
+                  stroke: {
+                    show: false
+                  },
+                  xaxis: {
+                    categories: monthlyStatusChartData.months,
+                    labels: {
+                      style: {
+                        fontSize: '12px',
+                      },
+                      rotate: -20,
+                      rotateAlways: false,
+                    }
+                  },
+                  yaxis: {
+                    labels: {
+                      style: {
+                        fontSize: '12px',
+                      },
+                      formatter: (val: number) => Math.round(val).toString()
+                    }
+                  },
+                  colors: ['#22c55e', '#f59e0b', '#3b82f6', '#ef4444'],
+                  grid: {
+                    strokeDashArray: 3,
+                    borderColor: 'rgba(0, 0, 0, 0.06)',
+                    xaxis: {
+                      lines: {
+                        show: true
+                      }
+                    },
+                    yaxis: {
+                      lines: {
+                        show: true
+                      }
+                    }
+                  },
+                  legend: {
+                    position: 'top',
+                    fontSize: '12px',
+                  },
+                  tooltip: {
+                    theme: 'light',
+                    style: {
+                      fontSize: '12px',
+                    },
+                    y: {
+                      formatter: (val: number) => Math.round(val).toString()
+                    }
+                  },
+                } as ApexOptions}
+              />
             </div>
           </div>
 

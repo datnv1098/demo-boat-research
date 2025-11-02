@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Activity } from 'lucide-react'
 import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import Chart from 'react-apexcharts'
+import { ApexOptions } from 'apexcharts'
 
 export default function CPUEPage() {
   const [data, setData] = useState<any | null>(null)
@@ -237,29 +238,182 @@ export default function CPUEPage() {
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">CPUE by Period</div>
               <div style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={periodMode === 'month' ? byMonth : byQuarter}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey={periodMode === 'month' ? 'month' : 'quarter'} />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="cpue" stroke="#2563eb" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <Chart
+                  type="line"
+                  height={260}
+                  series={[{
+                    name: 'CPUE',
+                    data: (periodMode === 'month' ? byMonth : byQuarter).map(r => r.cpue)
+                  }]}
+                  options={{
+                    chart: {
+                      type: 'line',
+                      toolbar: { show: false },
+                      zoom: { enabled: true, type: 'x' },
+                      fontFamily: 'inherit',
+                    },
+                    stroke: {
+                      curve: 'smooth',
+                      width: 2.5,
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    markers: {
+                      size: 4,
+                      hover: {
+                        size: 6
+                      },
+                      strokeColors: ['#2563eb'],
+                      strokeWidth: 2
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 0.4,
+                        gradientToColors: ['#93c5fd'],
+                        inverseColors: false,
+                        opacityFrom: 0.5,
+                        opacityTo: 0.1,
+                        stops: [0, 100],
+                      },
+                    },
+                    xaxis: {
+                      categories: (periodMode === 'month' ? byMonth : byQuarter).map(r => {
+                        if (periodMode === 'month') {
+                          return (r as { month: string; cpue: number }).month
+                        } else {
+                          return (r as { quarter: string; cpue: number }).quarter
+                        }
+                      }),
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        }
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                    colors: ['#2563eb'],
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => val.toFixed(3)
+                      }
+                    },
+                  } as ApexOptions}
+                />
               </div>
             </div>
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">CPUE by Depth class</div>
               <div style={{ height: 260 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={byDepth}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="cls" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="cpue" fill="#10b981" />
-                  </BarChart>
-              </ResponsiveContainer>
+                <Chart
+                  type="bar"
+                  height={260}
+                  series={[{
+                    name: 'CPUE',
+                    data: byDepth.map(r => r.cpue)
+                  }]}
+                  options={{
+                    chart: {
+                      type: 'bar',
+                      toolbar: { show: false },
+                      zoom: { enabled: false },
+                      fontFamily: 'inherit',
+                    },
+                    plotOptions: {
+                      bar: {
+                        borderRadius: 4,
+                        columnWidth: '60%',
+                      }
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    stroke: {
+                      show: false
+                    },
+                    xaxis: {
+                      categories: byDepth.map(r => r.cls),
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        }
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 0.5,
+                        gradientToColors: ['#34d399'],
+                        inverseColors: false,
+                        opacityFrom: 0.9,
+                        opacityTo: 0.7,
+                        stops: [0, 100],
+                      },
+                      colors: ['#10b981']
+                    },
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => val.toFixed(3)
+                      }
+                    },
+                  } as ApexOptions}
+                />
               </div>
             </div>
           </div>
@@ -267,15 +421,89 @@ export default function CPUEPage() {
           <div className="rounded-xl border bg-background p-3">
             <div className="text-sm font-medium mb-2">CPUE Distribution (Histogram)</div>
             <div style={{ height: 320 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={histData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="bin" interval={0} angle={-25} textAnchor="end" height={60} />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#f59e0b" />
-                </BarChart>
-              </ResponsiveContainer>
+              <Chart
+                type="bar"
+                height={320}
+                series={[{
+                  name: 'Count',
+                  data: histData.map(r => r.count)
+                }]}
+                options={{
+                  chart: {
+                    type: 'bar',
+                    toolbar: { show: false },
+                    zoom: { enabled: false },
+                    fontFamily: 'inherit',
+                  },
+                  plotOptions: {
+                    bar: {
+                      borderRadius: 4,
+                      columnWidth: '80%',
+                    }
+                  },
+                  dataLabels: {
+                    enabled: false
+                  },
+                  stroke: {
+                    show: false
+                  },
+                  xaxis: {
+                    categories: histData.map(r => r.bin),
+                    labels: {
+                      style: {
+                        fontSize: '11px',
+                      },
+                      rotate: -25,
+                      rotateAlways: false,
+                    }
+                  },
+                  yaxis: {
+                    labels: {
+                      style: {
+                        fontSize: '12px',
+                      },
+                      formatter: (val: number) => Math.round(val).toString()
+                    }
+                  },
+                  fill: {
+                    type: 'gradient',
+                    gradient: {
+                      shade: 'light',
+                      type: 'vertical',
+                      shadeIntensity: 0.5,
+                      gradientToColors: ['#fbbf24'],
+                      inverseColors: false,
+                      opacityFrom: 0.9,
+                      opacityTo: 0.7,
+                      stops: [0, 100],
+                    },
+                    colors: ['#f59e0b']
+                  },
+                  grid: {
+                    strokeDashArray: 3,
+                    borderColor: 'rgba(0, 0, 0, 0.06)',
+                    xaxis: {
+                      lines: {
+                        show: true
+                      }
+                    },
+                    yaxis: {
+                      lines: {
+                        show: true
+                      }
+                    }
+                  },
+                  tooltip: {
+                    theme: 'light',
+                    style: {
+                      fontSize: '12px',
+                    },
+                    y: {
+                      formatter: (val: number) => Math.round(val).toString()
+                    }
+                  },
+                } as ApexOptions}
+              />
             </div>
           </div>
           <Table

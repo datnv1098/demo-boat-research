@@ -31,21 +31,37 @@ export default function WaterQualityPage() {
       return 'Andaman';
     };
     
-    return rawData.map((r: any) => ({
-      Month: String(r.month || r.Month || ''),
-      Zone: getZoneFromStation(Number(r.station || 1)),
-      Temp: r.Temp_surface || r.temp_surface || r.Temp || r.temp || 0,
-      DO: r.DO_surface || r.do_surface || r.DO || r.do || 0,
-      pH: r.pH_surface || r.ph_surface || r.pH || r.ph || 0,
-      Salinity: r.Salinity_surface || r.salinity_surface || r.Salinity || r.salinity || 0,
-      Station: r.station || r.Station || '',
-    }));
+    return rawData.map((r: any) => {
+      const monthNum = Number(r.month || r.Month || '');
+      const yearNum = Number(r.year || r.Year || new Date().getFullYear());
+      // Format as MM/YYYY
+      const monthStr = monthNum ? `${String(monthNum).padStart(2, '0')}/${yearNum}` : '';
+      return {
+        Month: monthStr,
+        MonthNum: monthNum,
+        Year: yearNum,
+        Zone: getZoneFromStation(Number(r.station || 1)),
+        Temp: r.Temp_surface || r.temp_surface || r.Temp || r.temp || 0,
+        DO: r.DO_surface || r.do_surface || r.DO || r.do || 0,
+        pH: r.pH_surface || r.ph_surface || r.pH || r.ph || 0,
+        Salinity: r.Salinity_surface || r.salinity_surface || r.Salinity || r.salinity || 0,
+        Station: r.station || r.Station || '',
+      };
+    });
   }, [data]);
 
   // Collect filter options
   const filterOptions = useMemo(() => {
-    const months = Array.from(new Set(waterRows.map(r => r.Month)))
-      .sort((a, b) => Number(a) - Number(b));
+    // For filter, use MonthNum for sorting, but display as MM/YYYY
+    const monthMap = new Map<string, number>();
+    waterRows.forEach(r => {
+      if (r.MonthNum) {
+        monthMap.set(r.Month, r.MonthNum + r.Year * 100); // Create sortable key
+      }
+    });
+    const months = Array.from(monthMap.entries())
+      .sort((a, b) => a[1] - b[1])
+      .map(([month]) => month);
     const zones = Array.from(new Set(waterRows.map(r => r.Zone))).sort();
     return { months, zones };
   }, [waterRows]);
@@ -79,16 +95,22 @@ export default function WaterQualityPage() {
 
   // Line chart data
   const trendByMonth = useMemo(() => {
-    const map: Record<string, { month: string, temp: number[], do: number[], ph: number[], salinity: number[] }> = {};
+    const map: Record<string, { month: string, monthNum: number, year: number, temp: number[], do: number[], ph: number[], salinity: number[] }> = {};
     for (const r of waterRows) {
       const m = String(r.Month);
-      if (!map[m]) map[m] = { month: m, temp: [], do: [], ph: [], salinity: [] };
+      if (!map[m]) map[m] = { month: m, monthNum: r.MonthNum || 0, year: r.Year || 0, temp: [], do: [], ph: [], salinity: [] };
       map[m].temp.push(Number(r.Temp));
       map[m].do.push(Number(r.DO));
       map[m].ph.push(Number(r.pH));
       map[m].salinity.push(Number(r.Salinity));
     }
-    return Object.values(map).sort((a, b) => Number(a.month) - Number(b.month)).map(x => ({
+    return Object.values(map)
+      .sort((a, b) => {
+        // Sort by year first, then by month
+        if (a.year !== b.year) return a.year - b.year;
+        return a.monthNum - b.monthNum;
+      })
+      .map(x => ({
       month: x.month,
       Temp: avg(x.temp),
       DO: avg(x.do),
@@ -98,7 +120,18 @@ export default function WaterQualityPage() {
   }, [waterRows]);
 
   // Alert table: giá trị bất thường theo rule
-  const alertRows = useMemo(() => filtered.filter(r => (Number(r.Temp) > 30 || Number(r.DO) < 3 || Number(r.pH) < 7 || Number(r.Salinity) > 35)), [filtered]);
+  const alertRows = useMemo(() => {
+    const alerts = filtered.filter(r => (Number(r.Temp) > 30 || Number(r.DO) < 3 || Number(r.pH) < 7 || Number(r.Salinity) > 35));
+    // Sort by year first, then by month
+    return alerts.sort((a, b) => {
+      // Sort by year first
+      if (a.Year !== b.Year) {
+        return a.Year - b.Year;
+      }
+      // Then by month number
+      return (a.MonthNum || 0) - (b.MonthNum || 0);
+    });
+  }, [filtered]);
 
   function exportXLSX() {
     // Nếu triển khai SheetJS thì ở đây load dynamic, ví dụ chỉ placeholder:

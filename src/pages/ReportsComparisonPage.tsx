@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { BarChart2 } from 'lucide-react'
 import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend } from 'recharts'
-import { BarChart, Bar } from 'recharts'
+import Chart from 'react-apexcharts'
+import { ApexOptions } from 'apexcharts'
 
 export default function ReportsComparisonPage() {
   const [data, setData] = useState<any | null>(null)
@@ -65,7 +65,9 @@ export default function ReportsComparisonPage() {
     }
     const waterKeyMap: Record<string, any> = {}
     for (const w of waterQlRows) {
-      const key = `${String(w?.station)}_${String(w?.year)}_${String(w?.month)}`
+      // Normalize station: convert both "001" and "1" to number for matching
+      const stationNum = String(w?.station).replace(/^0+/, '') || String(w?.station)
+      const key = `${stationNum}_${String(w?.year)}_${String(w?.month)}`
       waterKeyMap[key] = w
     }
     const out: any[] = []
@@ -76,9 +78,11 @@ export default function ReportsComparisonPage() {
       const cpue = isFinite(hours) && hours > 0 ? (linkToCatchWeight[link] || 0) / hours : NaN
       const date = String(h?.Date)
       const station = String(h?.Station || '-')
+      // Normalize station: remove leading zeros for matching
+      const stationNum = station.replace(/^0+/, '') || station
       const depth = Number(h?.Depth)
       const d = new Date(date)
-      const waterKey = `${station}_${d.getFullYear()}_${d.getMonth() + 1}`
+      const waterKey = `${stationNum}_${d.getFullYear()}_${d.getMonth() + 1}`
       const w = waterKeyMap[waterKey]
       out.push({
         link,
@@ -161,6 +165,55 @@ export default function ReportsComparisonPage() {
       .slice(0, 5)
   }, [filtered])
 
+  // Filter series for Trend by quarter - show 3 years (12 quarters max)
+  const trendSeriesForQuarter = useMemo(() => {
+    if (period !== 'quarter') return series
+    
+    // Extract year from quarter labels (format: "Q1 2024", "Q2 2024", etc.)
+    const yearMap = new Map<string, number>()
+    series.forEach(r => {
+      const match = r.period.match(/Q\d+\s+(\d+)/)
+      if (match) {
+        const year = match[1]
+        yearMap.set(year, (yearMap.get(year) || 0) + 1)
+      }
+    })
+    
+    // Get top 3 years (sorted by year descending, then by count of quarters)
+    const sortedYears = Array.from(yearMap.entries())
+      .sort((a, b) => {
+        // First sort by year (descending - latest first)
+        if (b[0] !== a[0]) return parseInt(b[0]) - parseInt(a[0])
+        // Then by count of quarters
+        return b[1] - a[1]
+      })
+      .slice(0, 3)
+      .map(([year]) => year)
+    
+    // Filter to only quarters from selected 3 years
+    const filtered = series.filter(r => {
+      const match = r.period.match(/Q\d+\s+(\d+)/)
+      return match && sortedYears.includes(match[1])
+    })
+    
+    // Sort by year and quarter (Q1 2024, Q2 2024, ..., Q4 2024, Q1 2023, ...)
+    return filtered.sort((a, b) => {
+      const matchA = a.period.match(/Q(\d+)\s+(\d+)/)
+      const matchB = b.period.match(/Q(\d+)\s+(\d+)/)
+      if (!matchA || !matchB) return 0
+      
+      const yearA = parseInt(matchA[2])
+      const yearB = parseInt(matchB[2])
+      const quarterA = parseInt(matchA[1])
+      const quarterB = parseInt(matchB[1])
+      
+      // Sort by year descending, then by quarter ascending
+      if (yearA !== yearB) return yearB - yearA
+      return quarterA - quarterB
+    })
+    .slice(0, 12) // Ensure maximum 12 quarters (3 years × 4 quarters)
+  }, [series, period])
+
   function exportCSV() {
     const header = ['Period','CPUE mean','CPUE min','CPUE max','CPUE CV','Depth mean','Temp mean','Sal mean','DO mean','pH mean']
     const lines = [header.join(',')].concat(series.map((r) => [r.period, r.cpue_mean, r.cpue_min, r.cpue_max, r.cpue_cv, r.depth_mean, r.temp_mean, r.sal_mean, r.do_mean, r.ph_mean].join(',')))
@@ -183,7 +236,7 @@ export default function ReportsComparisonPage() {
       <p>${t('dash.desc')}</p>
       <table>
         <tr><th>Period</th><th>CPUE mean</th><th>CPUE min</th><th>CPUE max</th><th>CPUE CV</th><th>Depth mean</th><th>Temp</th><th>Sal</th><th>DO</th><th>pH</th></tr>
-        ${series.map((r) => `<tr><td>${r.period}</td><td>${r.cpue_mean.toFixed(2)}</td><td>${r.cpue_min.toFixed(2)}</td><td>${r.cpue_max.toFixed(2)}</td><td>${r.cpue_cv.toFixed(2)}</td><td>${r.depth_mean.toFixed(1)}</td><td>${r.temp_mean.toFixed(1)}</td><td>${r.sal_mean.toFixed(1)}</td><td>${r.do_mean.toFixed(2)}</td><td>${r.ph_mean.toFixed(2)}</td></tr>`).join('')}
+        ${series.map((r) => `<tr><td>${r.period}</td><td>${r.cpue_mean.toFixed(2)}</td><td>${r.cpue_min.toFixed(2)}</td><td>${r.cpue_max.toFixed(2)}</td><td>${r.cpue_cv.toFixed(2)}</td><td>${r.depth_mean.toFixed(2)}</td><td>${r.temp_mean.toFixed(2)}</td><td>${r.sal_mean.toFixed(2)}</td><td>${r.do_mean.toFixed(2)}</td><td>${r.ph_mean.toFixed(2)}</td></tr>`).join('')}
       </table>
       <script>window.print();</script>
       </body></html>`)
@@ -248,9 +301,9 @@ export default function ReportsComparisonPage() {
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
             <div className="rounded-xl border p-3"><div className="text-muted-foreground">CPUE</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.cpue_mean,0)/(series.length||1)).toFixed(2)}</div></div>
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Depth</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.depth_mean,0)/(series.length||1)).toFixed(1)}</div></div>
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Temp</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.temp_mean,0)/(series.length||1)).toFixed(1)}</div></div>
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Salinity</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.sal_mean,0)/(series.length||1)).toFixed(1)}</div></div>
+            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Depth</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.depth_mean,0)/(series.length||1)).toFixed(2)}</div></div>
+            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Temp</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.temp_mean,0)/(series.length||1)).toFixed(2)}</div></div>
+            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Salinity</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.sal_mean,0)/(series.length||1)).toFixed(2)}</div></div>
             <div className="rounded-xl border p-3"><div className="text-muted-foreground">DO</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.do_mean,0)/(series.length||1)).toFixed(2)}</div></div>
             <div className="rounded-xl border p-3"><div className="text-muted-foreground">pH</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.ph_mean,0)/(series.length||1)).toFixed(2)}</div></div>
           </div>
@@ -260,50 +313,517 @@ export default function ReportsComparisonPage() {
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">{`Env (${metric.toUpperCase()}) by ${period}`}</div>
               <div style={{ height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={series}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="period" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey={`${metric}_mean`}
-                         name={metric.toUpperCase()}
-                         fill={metric === 'temp' ? '#60a5fa' : metric === 'sal' ? '#34d399' : metric === 'do' ? '#f59e0b' : '#9ca3af'} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Chart
+                  type="bar"
+                  height={280}
+                  series={[{
+                    name: metric.toUpperCase(),
+                    data: series.map(r => r[`${metric}_mean` as keyof typeof r] as number)
+                  }]}
+                  options={{
+                    chart: {
+                      type: 'bar',
+                      toolbar: { show: false },
+                      zoom: { enabled: false },
+                      fontFamily: 'inherit',
+                    },
+                    plotOptions: {
+                      bar: {
+                        borderRadius: 4,
+                        columnWidth: '60%',
+                      }
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    stroke: {
+                      show: false
+                    },
+                    xaxis: {
+                      categories: series.map(r => r.period),
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        }
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 0.5,
+                        gradientToColors: [metric === 'temp' ? '#93c5fd' : metric === 'sal' ? '#6ee7b7' : metric === 'do' ? '#fbbf24' : '#d1d5db'],
+                        inverseColors: false,
+                        opacityFrom: 0.9,
+                        opacityTo: 0.7,
+                        stops: [0, 100],
+                      },
+                      colors: [metric === 'temp' ? '#60a5fa' : metric === 'sal' ? '#34d399' : metric === 'do' ? '#f59e0b' : '#9ca3af']
+                    },
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                  } as ApexOptions}
+                />
               </div>
             </div>
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">Top Stations (Avg CPUE)</div>
               <div style={{ height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={topStations}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="station" interval={0} angle={-20} textAnchor="end" height={60} />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="cpue" name="CPUE" fill="#ef4444" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Chart
+                  type="bar"
+                  height={280}
+                  series={[{
+                    name: 'CPUE',
+                    data: topStations.map(r => r.cpue)
+                  }]}
+                  options={{
+                    chart: {
+                      type: 'bar',
+                      toolbar: { show: false },
+                      zoom: { enabled: false },
+                      fontFamily: 'inherit',
+                    },
+                    plotOptions: {
+                      bar: {
+                        borderRadius: 4,
+                        columnWidth: '60%',
+                        horizontal: false,
+                      }
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    stroke: {
+                      show: false
+                    },
+                    xaxis: {
+                      categories: topStations.map(r => r.station),
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        rotate: -20,
+                        rotateAlways: false,
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 0.5,
+                        gradientToColors: ['#f87171'],
+                        inverseColors: false,
+                        opacityFrom: 0.9,
+                        opacityTo: 0.7,
+                        stops: [0, 100],
+                      },
+                      colors: ['#ef4444']
+                    },
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                  } as ApexOptions}
+                />
               </div>
             </div>
           </div>
 
-          {/* Trend Chart */}
+          {/* Multi-Metric Comparison Chart */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">CPUE Range (Min-Max) by {period}</div>
+              <div style={{ height: 280 }}>
+                <Chart
+                  type="area"
+                  height={280}
+                  series={[
+                    {
+                      name: 'CPUE Max',
+                      data: series.map(r => r.cpue_max)
+                    },
+                    {
+                      name: 'CPUE Mean',
+                      data: series.map(r => r.cpue_mean)
+                    },
+                    {
+                      name: 'CPUE Min',
+                      data: series.map(r => r.cpue_min)
+                    }
+                  ]}
+                  options={{
+                    chart: {
+                      type: 'area',
+                      toolbar: { show: false },
+                      zoom: { enabled: true, type: 'x' },
+                      fontFamily: 'inherit',
+                      stacked: false,
+                    },
+                    stroke: {
+                      curve: 'smooth',
+                      width: 2.5,
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shadeIntensity: 1,
+                        opacityFrom: 0.4,
+                        opacityTo: 0.1,
+                        stops: [0, 90, 100]
+                      }
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    markers: {
+                      size: 3,
+                      hover: {
+                        size: 5
+                      }
+                    },
+                    xaxis: {
+                      categories: series.map(r => r.period),
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        }
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                    colors: ['#ef4444', '#3b82f6', '#10b981'],
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    legend: {
+                      position: 'top',
+                      fontSize: '11px',
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                  } as ApexOptions}
+                />
+              </div>
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <div className="text-sm font-medium mb-2">CPUE vs Depth Comparison</div>
+              <div style={{ height: 280 }}>
+                <Chart
+                  type="line"
+                  height={280}
+                  series={[
+                    {
+                      name: 'CPUE',
+                      type: 'line',
+                      data: series.map(r => r.cpue_mean)
+                    },
+                    {
+                      name: 'Depth',
+                      type: 'column',
+                      data: series.map(r => r.depth_mean)
+                    }
+                  ]}
+                  options={{
+                    chart: {
+                      toolbar: { show: false },
+                      zoom: { enabled: true, type: 'x' },
+                      fontFamily: 'inherit',
+                    },
+                    stroke: {
+                      curve: 'smooth',
+                      width: 2.5,
+                    },
+                    plotOptions: {
+                      bar: {
+                        borderRadius: 4,
+                        columnWidth: '50%',
+                      }
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 0.5,
+                        gradientToColors: ['#6ee7b7'],
+                        inverseColors: false,
+                        opacityFrom: 0.9,
+                        opacityTo: 0.7,
+                        stops: [0, 100],
+                      },
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    markers: {
+                      size: 4,
+                      hover: {
+                        size: 6
+                      },
+                      strokeColors: ['#ef4444'],
+                      strokeWidth: 2
+                    },
+                    xaxis: {
+                      categories: series.map(r => r.period),
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        }
+                      }
+                    },
+                    yaxis: [
+                      {
+                        title: {
+                          text: 'CPUE',
+                          style: {
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            color: '#ef4444'
+                          }
+                        },
+                        labels: {
+                          style: {
+                            fontSize: '12px',
+                            colors: '#ef4444'
+                          },
+                          formatter: (val: number) => val.toFixed(2)
+                        }
+                      },
+                      {
+                        opposite: true,
+                        title: {
+                          text: 'Depth (m)',
+                          style: {
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            color: '#10b981'
+                          }
+                        },
+                        labels: {
+                          style: {
+                            fontSize: '12px',
+                            colors: '#10b981'
+                          },
+                          formatter: (val: number) => val.toFixed(2)
+                        }
+                      }
+                    ],
+                    colors: ['#ef4444', '#10b981'],
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    legend: {
+                      position: 'top',
+                      fontSize: '11px',
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                  } as ApexOptions}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Environmental Metrics Overview */}
           <div className="rounded-xl border bg-background p-3">
-            <div className="text-sm font-medium mb-2">Trend by {period}</div>
-            <div style={{ height: 280 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={series}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="period" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey={`${metric}_mean`} stroke="#ef4444" dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="text-sm font-medium mb-2">Environmental Metrics Overview by {period}</div>
+            <div style={{ height: 320 }}>
+              <Chart
+                type="line"
+                height={320}
+                series={[
+                  {
+                    name: 'Temp',
+                    data: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.temp_mean)
+                  },
+                  {
+                    name: 'DO',
+                    data: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.do_mean)
+                  },
+                  {
+                    name: 'pH',
+                    data: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.ph_mean)
+                  },
+                  {
+                    name: 'Salinity',
+                    data: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.sal_mean)
+                  }
+                ]}
+                options={{
+                  chart: {
+                    type: 'line',
+                    toolbar: { show: false },
+                    zoom: { enabled: period !== 'quarter', type: 'x' },
+                    fontFamily: 'inherit',
+                  },
+                  stroke: {
+                    curve: 'smooth',
+                    width: 2.5,
+                  },
+                  dataLabels: {
+                    enabled: false
+                  },
+                  markers: {
+                    size: 4,
+                    hover: {
+                      size: 6
+                    }
+                  },
+                  fill: {
+                    type: 'gradient',
+                    gradient: {
+                      shadeIntensity: 1,
+                      opacityFrom: 0.3,
+                      opacityTo: 0.05,
+                      stops: [0, 90, 100]
+                    }
+                  },
+                  xaxis: {
+                    categories: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.period),
+                    labels: {
+                      style: {
+                        fontSize: '12px',
+                      }
+                    }
+                  },
+                  yaxis: {
+                    labels: {
+                      style: {
+                        fontSize: '12px',
+                      },
+                      formatter: (val: number) => val.toFixed(2)
+                    }
+                  },
+                  colors: ['#60a5fa', '#f59e0b', '#ef4444', '#34d399'],
+                  grid: {
+                    strokeDashArray: 3,
+                    borderColor: 'rgba(0, 0, 0, 0.06)',
+                    xaxis: {
+                      lines: {
+                        show: true
+                      }
+                    },
+                    yaxis: {
+                      lines: {
+                        show: true
+                      }
+                    }
+                  },
+                  legend: {
+                    position: 'top',
+                    fontSize: '11px',
+                  },
+                  tooltip: {
+                    theme: 'light',
+                    style: {
+                      fontSize: '12px',
+                    },
+                    y: {
+                      formatter: (val: number) => val.toFixed(2)
+                    }
+                  },
+                } as ApexOptions}
+              />
             </div>
           </div>
 
@@ -312,7 +832,7 @@ export default function ReportsComparisonPage() {
             <div className="text-sm font-medium mb-2">Summary</div>
             <Table
               columns={["Period","CPUE mean","CPUE min","CPUE max","CV","Depth","Temp","Sal","DO","pH"]}
-              rows={series.map((r) => [r.period, r.cpue_mean.toFixed(2), r.cpue_min.toFixed(2), r.cpue_max.toFixed(2), r.cpue_cv.toFixed(2), r.depth_mean.toFixed(1), r.temp_mean.toFixed(1), r.sal_mean.toFixed(1), r.do_mean.toFixed(2), r.ph_mean.toFixed(2)])}
+              rows={series.map((r) => [r.period, r.cpue_mean.toFixed(2), r.cpue_min.toFixed(2), r.cpue_max.toFixed(2), r.cpue_cv.toFixed(2), r.depth_mean.toFixed(2), r.temp_mean.toFixed(2), r.sal_mean.toFixed(2), r.do_mean.toFixed(2), r.ph_mean.toFixed(2)])}
               maxHeight={360}
             />
           </div>

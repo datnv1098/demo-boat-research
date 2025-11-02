@@ -3,7 +3,8 @@ import { Ruler } from 'lucide-react'
 import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button } from '../components/common'
 import { Table } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LineChart, Line } from 'recharts'
+import Chart from 'react-apexcharts'
+import { ApexOptions } from 'apexcharts'
 
 export default function LengthBiologyPage() {
   const [data, setData] = useState<any | null>(null)
@@ -226,30 +227,186 @@ export default function LengthBiologyPage() {
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">Length Frequency Histogram</div>
               <div style={{ height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={aggregated}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="length" label={{ value: 'Length (cm)', position: 'insideBottom', offset: -5 }} />
-                    <YAxis label={{ value: 'Count', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#8b5cf6" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Chart
+                  type="bar"
+                  height={300}
+                  series={[{
+                    name: 'Count',
+                    data: aggregated.map(r => r.count)
+                  }]}
+                  options={{
+                    chart: {
+                      type: 'bar',
+                      toolbar: { show: false },
+                      zoom: { enabled: false },
+                      fontFamily: 'inherit',
+                    },
+                    plotOptions: {
+                      bar: {
+                        borderRadius: 4,
+                        columnWidth: '70%',
+                      }
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    stroke: {
+                      show: false
+                    },
+                    xaxis: {
+                      categories: aggregated.map(r => r.length),
+                      title: {
+                        text: 'Length (cm)',
+                        style: {
+                          fontSize: '12px',
+                        }
+                      },
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        }
+                      }
+                    },
+                    yaxis: {
+                      title: {
+                        text: 'Count',
+                        style: {
+                          fontSize: '12px',
+                        }
+                      },
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => Math.round(val).toString()
+                      }
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 0.5,
+                        gradientToColors: ['#a78bfa'],
+                        inverseColors: false,
+                        opacityFrom: 0.9,
+                        opacityTo: 0.7,
+                        stops: [0, 100],
+                      },
+                      colors: ['#8b5cf6']
+                    },
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => Math.round(val).toString()
+                      }
+                    },
+                  } as ApexOptions}
+                />
               </div>
             </div>
 
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">Lmean by Zone</div>
               <div style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={lmeanByZone}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="zone" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="lmean" fill="#34d399" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <Chart
+                  type="bar"
+                  height={260}
+                  series={[{
+                    name: 'Lmean',
+                    data: lmeanByZone.map(r => r.lmean)
+                  }]}
+                  options={{
+                    chart: {
+                      type: 'bar',
+                      toolbar: { show: false },
+                      zoom: { enabled: false },
+                      fontFamily: 'inherit',
+                    },
+                    plotOptions: {
+                      bar: {
+                        borderRadius: 4,
+                        columnWidth: '60%',
+                      }
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    stroke: {
+                      show: false
+                    },
+                    xaxis: {
+                      categories: lmeanByZone.map(r => r.zone),
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        }
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 0.5,
+                        gradientToColors: ['#6ee7b7'],
+                        inverseColors: false,
+                        opacityFrom: 0.9,
+                        opacityTo: 0.7,
+                        stops: [0, 100],
+                      },
+                      colors: ['#34d399']
+                    },
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => val.toFixed(2) + ' cm'
+                      }
+                    },
+                  } as ApexOptions}
+                />
               </div>
             </div>
           </div>
@@ -258,15 +415,92 @@ export default function LengthBiologyPage() {
             <div className="rounded-xl border bg-background p-3">
               <div className="text-sm font-medium mb-2">Lmean by Month</div>
               <div style={{ height: 260 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={lmeanByMonth}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" interval={0} angle={-20} textAnchor="end" height={60} />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="lmean" stroke="#2563eb" dot strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <Chart
+                  type="line"
+                  height={260}
+                  series={[{
+                    name: 'Lmean',
+                    data: lmeanByMonth.map(r => r.lmean)
+                  }]}
+                  options={{
+                    chart: {
+                      type: 'line',
+                      toolbar: { show: false },
+                      zoom: { enabled: true, type: 'x' },
+                      fontFamily: 'inherit',
+                    },
+                    stroke: {
+                      curve: 'smooth',
+                      width: 2.5,
+                    },
+                    dataLabels: {
+                      enabled: false
+                    },
+                    markers: {
+                      size: 4,
+                      hover: {
+                        size: 6
+                      },
+                      strokeColors: ['#2563eb'],
+                      strokeWidth: 2
+                    },
+                    fill: {
+                      type: 'gradient',
+                      gradient: {
+                        shade: 'light',
+                        type: 'vertical',
+                        shadeIntensity: 0.4,
+                        gradientToColors: ['#93c5fd'],
+                        inverseColors: false,
+                        opacityFrom: 0.5,
+                        opacityTo: 0.1,
+                        stops: [0, 100],
+                      },
+                    },
+                    xaxis: {
+                      categories: lmeanByMonth.map(r => r.month),
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        rotate: -20,
+                        rotateAlways: false,
+                      }
+                    },
+                    yaxis: {
+                      labels: {
+                        style: {
+                          fontSize: '12px',
+                        },
+                        formatter: (val: number) => val.toFixed(2)
+                      }
+                    },
+                    colors: ['#2563eb'],
+                    grid: {
+                      strokeDashArray: 3,
+                      borderColor: 'rgba(0, 0, 0, 0.06)',
+                      xaxis: {
+                        lines: {
+                          show: true
+                        }
+                      },
+                      yaxis: {
+                        lines: {
+                          show: true
+                        }
+                      }
+                    },
+                    tooltip: {
+                      theme: 'light',
+                      style: {
+                        fontSize: '12px',
+                      },
+                      y: {
+                        formatter: (val: number) => val.toFixed(2) + ' cm'
+                      }
+                    },
+                  } as ApexOptions}
+                />
               </div>
             </div>
             <div className="rounded-xl border bg-background p-3 flex flex-col">
