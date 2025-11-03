@@ -7,6 +7,7 @@ import {
 } from '../data/thailandGeoData'
 import { Switch } from './ui/switch'
 import { Label } from './ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { useI18n } from '../lib/i18n'
 
 // Import Leaflet icons
@@ -65,6 +66,7 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
   void hotspotData
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showStations, setShowStations] = useState(true)
+  const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('carto_voyager')
 
   // Points are derived from selected hotspot stations (not independent grid)
   const visibleStations = stationData.filter((s) => !blacklistLinks.includes(s.link))
@@ -86,7 +88,7 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
   return (
     <div className="space-y-4">
       {/* Layer Controls */}
-      <div className="flex flex-wrap gap-6 p-3 bg-muted/50 rounded-lg">
+      <div className="relative z-50 flex flex-wrap gap-6 p-3 bg-muted/50 rounded-lg">
         <div className="flex items-center space-x-2">
           <Switch
             id="heatmap"
@@ -109,13 +111,24 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
           </Label>
         </div>
 
-        {/* Provinces option removed */}
+        {/* Base map tile selector */}
+        <div className="flex items-center space-x-2">
+          <Label className="text-sm">Base map</Label>
+          <Select value={tileStyle} onValueChange={(v: any) => setTileStyle(v)}>
+            <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="carto_voyager">Carto Voyager (clear land/sea)</SelectItem>
+              <SelectItem value="osm">OSM Standard</SelectItem>
+              <SelectItem value="esri_ocean">Esri Ocean (labels)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Map Container */}
       <div
-        className="w-full rounded-lg overflow-hidden border"
-        style={{ height: '500px' }}
+        className="relative z-0 w-full rounded-lg overflow-hidden border mt-2.5"
+        style={{ height: '520px' }}
       >
         <MapContainer
           center={[6.0, 100.0]}
@@ -127,8 +140,20 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
         >
           {/* Base Map Layer */}
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution={
+              tileStyle === 'carto_voyager'
+                ? '&copy; OpenStreetMap contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                : tileStyle === 'esri_ocean'
+                ? 'Tiles &copy; Esri — Sources: GEBCO, NOAA, National Geographic, DeLorme, NAVTEQ, and others'
+                : '&copy; OpenStreetMap contributors'
+            }
+            url={
+              tileStyle === 'carto_voyager'
+                ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
+                : tileStyle === 'esri_ocean'
+                ? 'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
+                : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+            }
           />
 
           {/* Provinces overlay removed */}
@@ -208,18 +233,7 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
         </MapContainer>
       </div>
 
-      {/* Legend */}
-      <div className="flex justify-between items-center text-xs text-muted-foreground">
-        <div>
-          <strong>{t('map.legend.title')}</strong>
-          <span className="ml-2">{t('map.legend.province')}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span>{t('map.legend.low')}</span>
-          <div className="w-16 h-3 bg-gradient-to-r from-blue-200 to-red-600 rounded"></div>
-          <span>{t('map.legend.high')}</span>
-        </div>
-      </div>
+      {/* Legend removed per request */}
     </div>
   )
 }
