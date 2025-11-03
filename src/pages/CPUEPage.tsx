@@ -676,8 +676,8 @@ export default function CPUEPage() {
               r.depthClass,
               r.monthLabel,
               r.towMin,
-              r.totalCatch,
-              r.cpue.toFixed(3),
+              Number(r.totalCatch).toFixed(2),
+              r.cpue.toFixed(2),
               r.outlier ? 'P95' : '',
             ])}
           />
