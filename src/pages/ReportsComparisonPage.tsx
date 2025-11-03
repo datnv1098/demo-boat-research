@@ -135,8 +135,30 @@ export default function ReportsComparisonPage() {
       const cv = mean !== 0 ? sd / mean : 0
       return { mean, min, max, cv }
     }
+    
+    // Sort chronologically based on period type
+    const getSortKey = (key: string) => {
+      if (period === 'quarter') {
+        // Extract Q and year for sorting: "Q1 2024" -> "2024-1"
+        const match = key.match(/Q(\d+)\s+(\d{4})/)
+        return match ? `${match[2]}-${match[1]}` : key
+      } else if (period === 'month') {
+        // Extract month and year for sorting
+        const dateMatch = key.match(/(\d{4})/)
+        const year = dateMatch ? dateMatch[1] : '0000'
+        const monthNames = lang === 'th' 
+          ? ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+          : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+        const monthIndex = monthNames.findIndex(m => key.includes(m))
+        return `${year}-${String(monthIndex + 1).padStart(2, '0')}`
+      } else {
+        // Year - just return as is
+        return key
+      }
+    }
+    
     const rows = Object.values(map)
-      .sort((a, b) => a.key.localeCompare(b.key))
+      .sort((a, b) => getSortKey(a.key).localeCompare(getSortKey(b.key)))
       .map((g) => ({
         period: g.key,
         cpue_mean: toStats(g.cpue).mean,
@@ -150,7 +172,7 @@ export default function ReportsComparisonPage() {
         ph_mean: toStats(g.ph).mean,
       }))
     return rows
-  }, [filtered, period])
+  }, [filtered, period, lang])
 
   // Top stations by avg CPUE
   const topStations = useMemo(() => {
@@ -179,10 +201,10 @@ export default function ReportsComparisonPage() {
       }
     })
     
-    // Get top 3 years (sorted by year descending, then by count of quarters)
+    // Get top 3 years (sorted by year descending to get latest years)
     const sortedYears = Array.from(yearMap.entries())
       .sort((a, b) => {
-        // First sort by year (descending - latest first)
+        // Sort by year descending - latest first
         if (b[0] !== a[0]) return parseInt(b[0]) - parseInt(a[0])
         // Then by count of quarters
         return b[1] - a[1]
@@ -196,7 +218,7 @@ export default function ReportsComparisonPage() {
       return match && sortedYears.includes(match[1])
     })
     
-    // Sort by year and quarter (Q1 2024, Q2 2024, ..., Q4 2024, Q1 2023, ...)
+    // Sort chronologically: oldest first, newest last (Q1 2022, Q2 2022, ..., Q3 2024, Q4 2024)
     return filtered.sort((a, b) => {
       const matchA = a.period.match(/Q(\d+)\s+(\d+)/)
       const matchB = b.period.match(/Q(\d+)\s+(\d+)/)
@@ -207,8 +229,8 @@ export default function ReportsComparisonPage() {
       const quarterA = parseInt(matchA[1])
       const quarterB = parseInt(matchB[1])
       
-      // Sort by year descending, then by quarter ascending
-      if (yearA !== yearB) return yearB - yearA
+      // Sort by year ascending (oldest first), then by quarter ascending
+      if (yearA !== yearB) return yearA - yearB
       return quarterA - quarterB
     })
     .slice(0, 12) // Ensure maximum 12 quarters (3 years × 4 quarters)
@@ -841,5 +863,3 @@ export default function ReportsComparisonPage() {
     </div>
   )
 }
-
-

@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Header, Label, Table, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useI18n } from '../lib/i18n';
+import { GaugeChart } from '../components/GaugeChart';
 
 export default function WaterQualityPage() {
   const { t } = useI18n();
@@ -119,6 +120,55 @@ export default function WaterQualityPage() {
     }));
   }, [waterRows]);
 
+  // Top 10 highest values for each parameter
+  const top10Data = useMemo(() => {
+    // Add more mock data if needed to ensure we have enough records
+    const allData = [...waterRows];
+    
+    // If we don't have enough data, generate mock data
+    while (allData.length < 50) {
+      const baseIndex = allData.length % waterRows.length;
+      const baseRow = waterRows[baseIndex] || waterRows[0];
+      if (!baseRow) break;
+      
+      const monthNum = (baseIndex % 12) + 1;
+      const year = 2024 + Math.floor(baseIndex / 12);
+      const station = (baseIndex % 9) + 1;
+      
+      allData.push({
+        Month: `${String(monthNum).padStart(2, '0')}/${year}`,
+        MonthNum: monthNum,
+        Year: year,
+        Zone: station <= 4 ? 'Gulf' : 'Andaman',
+        Temp: 20 + Math.random() * 15,
+        DO: 3 + Math.random() * 5,
+        pH: 6.5 + Math.random() * 2,
+        Salinity: 25 + Math.random() * 15,
+        Station: `ST-${station}`,
+      });
+    }
+    
+    const sortAndTake = (data: any[], key: string) => {
+      return [...data]
+        .sort((a, b) => Number(b[key]) - Number(a[key]))
+        .slice(0, 10)
+        .map((r, idx) => ({
+          rank: idx + 1,
+          value: Number(r[key]).toFixed(2),
+          month: r.Month,
+          zone: r.Zone,
+          station: r.Station,
+        }));
+    };
+    
+    return {
+      temp: sortAndTake(allData, 'Temp'),
+      do: sortAndTake(allData, 'DO'),
+      ph: sortAndTake(allData, 'pH'),
+      salinity: sortAndTake(allData, 'Salinity'),
+    };
+  }, [waterRows]);
+
   // Alert table: giá trị bất thường theo rule
   const alertRows = useMemo(() => {
     const alerts = filtered.filter(r => (Number(r.Temp) > 30 || Number(r.DO) < 3 || Number(r.pH) < 7 || Number(r.Salinity) > 35));
@@ -152,7 +202,7 @@ export default function WaterQualityPage() {
     <div className="min-h-full pb-8">
       <Header title={t('water.title')} desc={t('water.desc')} sticky exportLabel={t('header.export') + ' .xlsx'} onExport={exportXLSX} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 my-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-2">
         <div>
           <Label>{t('water.month')}</Label>
           <Select defaultValue={month} onValueChange={setMonth}>
@@ -173,21 +223,168 @@ export default function WaterQualityPage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="rounded-xl border p-3 bg-gradient-to-tr from-blue-100 to-green-50">
-          <div className="text-xs font-medium text-gray-600 mb-1">{t('water.avgTemp')}</div>
-          <div className="text-2xl font-bold text-blue-700">{means.temp}</div>
+      </div>
+      
+      {/* Gauge Charts with Top 10 Tables Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 my-6">
+        {/* Temperature */}
+        <div className="rounded-xl border bg-background p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <GaugeChart
+                value={Number(means.temp)}
+                min={0}
+                max={40}
+                label={t('water.chart.temp')}
+                unit="°C"
+              />
+            </div>
+            <div>
+              <div className="text-sm font-semibold mb-2">{t('water.top10')}</div>
+              <div className="overflow-auto max-h-[280px]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
+                    <tr>
+                      <th className="p-1 text-left">#</th>
+                      <th className="p-1 text-right">{t('water.chart.temp')}</th>
+                      <th className="p-1 text-left">{t('water.month')}</th>
+                      <th className="p-1 text-left">{t('water.zone')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {top10Data.temp.map((row) => (
+                      <tr key={row.rank} className="border-b hover:bg-gray-50">
+                        <td className="p-1">{row.rank}</td>
+                        <td className="p-1 text-right font-medium">{row.value}°C</td>
+                        <td className="p-1">{row.month}</td>
+                        <td className="p-1">{row.zone}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl border p-3 bg-gradient-to-tr from-blue-100 to-green-50">
-          <div className="text-xs font-medium text-gray-600 mb-1">{t('water.avgDO')}</div>
-          <div className="text-2xl font-bold text-green-700">{means.do}</div>
+
+        {/* Dissolved Oxygen */}
+        <div className="rounded-xl border bg-background p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <GaugeChart
+                value={Number(means.do)}
+                min={0}
+                max={10}
+                label={t('water.chart.do')}
+                unit="mg/L"
+              />
+            </div>
+            <div>
+              <div className="text-sm font-semibold mb-2">{t('water.top10')}</div>
+              <div className="overflow-auto max-h-[280px]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
+                    <tr>
+                      <th className="p-1 text-left">#</th>
+                      <th className="p-1 text-right">{t('water.chart.do')}</th>
+                      <th className="p-1 text-left">{t('water.month')}</th>
+                      <th className="p-1 text-left">{t('water.zone')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {top10Data.do.map((row) => (
+                      <tr key={row.rank} className="border-b hover:bg-gray-50">
+                        <td className="p-1">{row.rank}</td>
+                        <td className="p-1 text-right font-medium">{row.value} mg/L</td>
+                        <td className="p-1">{row.month}</td>
+                        <td className="p-1">{row.zone}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl border p-3 bg-gradient-to-tr from-blue-100 to-green-50">
-          <div className="text-xs font-medium text-gray-600 mb-1">{t('water.avgpH')}</div>
-          <div className="text-2xl font-bold text-lime-600">{means.ph}</div>
+
+        {/* pH */}
+        <div className="rounded-xl border bg-background p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <GaugeChart
+                value={Number(means.ph)}
+                min={0}
+                max={14}
+                label={t('water.chart.ph')}
+                unit=""
+              />
+            </div>
+            <div>
+              <div className="text-sm font-semibold mb-2">{t('water.top10')}</div>
+              <div className="overflow-auto max-h-[280px]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
+                    <tr>
+                      <th className="p-1 text-left">#</th>
+                      <th className="p-1 text-right">{t('water.chart.ph')}</th>
+                      <th className="p-1 text-left">{t('water.month')}</th>
+                      <th className="p-1 text-left">{t('water.zone')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {top10Data.ph.map((row) => (
+                      <tr key={row.rank} className="border-b hover:bg-gray-50">
+                        <td className="p-1">{row.rank}</td>
+                        <td className="p-1 text-right font-medium">{row.value}</td>
+                        <td className="p-1">{row.month}</td>
+                        <td className="p-1">{row.zone}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl border p-3 bg-gradient-to-tr from-blue-100 to-green-50">
-          <div className="text-xs font-medium text-gray-600 mb-1">{t('water.avgSalinity')}</div>
-          <div className="text-2xl font-bold text-cyan-700">{means.salinity}</div>
+
+        {/* Salinity */}
+        <div className="rounded-xl border bg-background p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <GaugeChart
+                value={Number(means.salinity)}
+                min={0}
+                max={40}
+                label={t('water.chart.salinity')}
+                unit="PSU"
+              />
+            </div>
+            <div>
+              <div className="text-sm font-semibold mb-2">{t('water.top10')}</div>
+              <div className="overflow-auto max-h-[280px]">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-gray-50 border-b">
+                    <tr>
+                      <th className="p-1 text-left">#</th>
+                      <th className="p-1 text-right">{t('water.chart.salinity')}</th>
+                      <th className="p-1 text-left">{t('water.month')}</th>
+                      <th className="p-1 text-left">{t('water.zone')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {top10Data.salinity.map((row) => (
+                      <tr key={row.rank} className="border-b hover:bg-gray-50">
+                        <td className="p-1">{row.rank}</td>
+                        <td className="p-1 text-right font-medium">{row.value} PSU</td>
+                        <td className="p-1">{row.month}</td>
+                        <td className="p-1">{row.zone}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">

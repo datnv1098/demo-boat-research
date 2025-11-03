@@ -92,6 +92,7 @@ const translations: Translations = {
   'water.chart.do': { th: 'ออกซิเจนละลาย', en: 'DO' },
   'water.chart.ph': { th: 'pH', en: 'pH' },
   'water.chart.salinity': { th: 'ความเค็ม', en: 'Salinity' },
+  'water.top10': { th: 'Top 10 ค่าสูงสุด', en: 'Top 10 Highest Values' },
 }
 
 type I18nContextValue = {
@@ -131,5 +132,3 @@ export function useI18n() {
   if (!ctx) throw new Error('useI18n must be used within I18nProvider')
   return ctx
 }
-
-

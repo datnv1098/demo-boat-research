@@ -131,28 +131,96 @@ export default function CPUEPage() {
   const withOutlier = useMemo(() => filtered.map((r) => ({ ...r, outlier: stats.p95 != null ? r.cpue > stats.p95 : false })), [filtered, stats])
 
   const byMonth = useMemo(() => {
-    const map = new Map<string, { month: string; cpue: number; count: number }>()
+    const map = new Map<string, { month: string; cpue: number; count: number; sortKey: string }>()
     for (const r of withOutlier) {
       const key = r.monthLabel
-      const cur = map.get(key) || { month: key, cpue: 0, count: 0 }
+      // Create sortKey from original date for proper sorting
+      const dateMatch = key.match(/(\d{4})/)
+      const year = dateMatch ? dateMatch[1] : '0000'
+      const monthNames = lang === 'th' 
+        ? ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
+        : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      const monthIndex = monthNames.findIndex(m => key.includes(m))
+      const sortKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
+      
+      const cur = map.get(key) || { month: key, cpue: 0, count: 0, sortKey }
       cur.cpue += r.cpue
       cur.count += 1
       map.set(key, cur)
     }
-    return Array.from(map.values()).map((x) => ({ month: x.month, cpue: x.count ? x.cpue / x.count : 0 }))
-  }, [withOutlier])
+    return Array.from(map.values())
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map((x) => ({ month: x.month, cpue: x.count ? x.cpue / x.count : 0 }))
+  }, [withOutlier, lang])
 
   const byQuarter = useMemo(() => {
-    const map = new Map<string, { quarter: string; cpue: number; count: number }>()
+    const map = new Map<string, { quarter: string; cpue: number; count: number; sortKey: string }>()
     for (const r of withOutlier) {
       const key = r.quarterLabel
-      const cur = map.get(key) || { quarter: key, cpue: 0, count: 0 }
+      // Extract Q and year for sorting: "Q1 2024" -> "2024-1"
+      const match = key.match(/Q(\d+)\s+(\d{4})/)
+      const sortKey = match ? `${match[2]}-${match[1]}` : key
+      
+      const cur = map.get(key) || { quarter: key, cpue: 0, count: 0, sortKey }
       cur.cpue += r.cpue
       cur.count += 1
       map.set(key, cur)
     }
-    return Array.from(map.values()).map((x) => ({ quarter: x.quarter, cpue: x.count ? x.cpue / x.count : 0 }))
+    return Array.from(map.values())
+      .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
+      .map((x) => ({ quarter: x.quarter, cpue: x.count ? x.cpue / x.count : 0 }))
   }, [withOutlier])
+
+  // CPUE by Area and Period - for area comparison chart
+  const byAreaAndPeriod = useMemo(() => {
+    // Get all unique areas and quarters from unfiltered data (except area filter)
+    const unfilteredByArea = cpueRecords.filter((r) => (
+      (zone === 'all' || r.zone === zone) &&
+      (depthClass === 'all' || r.depthClass === depthClass) &&
+      (quarter === 'all' || r.quarterLabel === quarter)
+    ))
+    
+    const areas = Array.from(new Set(unfilteredByArea.map(r => r.area))).sort()
+    
+    // Get quarters and sort them chronologically
+    const quarterSet = new Set(unfilteredByArea.map(r => r.quarterLabel))
+    const quarters = Array.from(quarterSet).sort((a, b) => {
+      // Extract Q and year for sorting: "Q1 2024" -> "2024-1"
+      const matchA = a.match(/Q(\d+)\s+(\d{4})/)
+      const matchB = b.match(/Q(\d+)\s+(\d{4})/)
+      const sortKeyA = matchA ? `${matchA[2]}-${matchA[1]}` : a
+      const sortKeyB = matchB ? `${matchB[2]}-${matchB[1]}` : b
+      return sortKeyA.localeCompare(sortKeyB)
+    })
+    
+    // Create a map structure: area -> quarter -> {cpue, count}
+    const dataMap = new Map<string, Map<string, { cpue: number; count: number }>>()
+    
+    for (const r of unfilteredByArea) {
+      if (!dataMap.has(r.area)) {
+        dataMap.set(r.area, new Map())
+      }
+      const areaMap = dataMap.get(r.area)!
+      const cur = areaMap.get(r.quarterLabel) || { cpue: 0, count: 0 }
+      cur.cpue += r.cpue
+      cur.count += 1
+      areaMap.set(r.quarterLabel, cur)
+    }
+    
+    // Convert to series format for ApexCharts
+    const series = areas.map(area => {
+      const areaData = dataMap.get(area)!
+      return {
+        name: area,
+        data: quarters.map(q => {
+          const qData = areaData.get(q)
+          return qData && qData.count ? qData.cpue / qData.count : null
+        })
+      }
+    })
+    
+    return { series, categories: quarters }
+  }, [cpueRecords, zone, depthClass, quarter])
 
   const byDepth = useMemo(() => {
     const map = new Map<string, { cls: string; cpue: number; count: number }>()
@@ -506,6 +574,98 @@ export default function CPUEPage() {
               />
             </div>
           </div>
+
+          <div className="rounded-xl border bg-background p-3">
+            <div className="text-sm font-medium mb-2">CPUE Comparison by Area</div>
+            <div style={{ height: 320 }}>
+              <Chart
+                type="line"
+                height={320}
+                series={byAreaAndPeriod.series}
+                options={{
+                  chart: {
+                    type: 'line',
+                    toolbar: { show: true },
+                    zoom: { enabled: true, type: 'x' },
+                    fontFamily: 'inherit',
+                  },
+                  stroke: {
+                    curve: 'smooth',
+                    width: 2.5,
+                  },
+                  dataLabels: {
+                    enabled: false
+                  },
+                  markers: {
+                    size: 4,
+                    hover: {
+                      size: 6
+                    },
+                    strokeWidth: 2
+                  },
+                  xaxis: {
+                    categories: byAreaAndPeriod.categories,
+                    labels: {
+                      style: {
+                        fontSize: '12px',
+                      },
+                      rotate: -45,
+                      rotateAlways: false,
+                    }
+                  },
+                  yaxis: {
+                    title: {
+                      text: 'Average CPUE',
+                      style: {
+                        fontSize: '12px',
+                      }
+                    },
+                    labels: {
+                      style: {
+                        fontSize: '12px',
+                      },
+                      formatter: (val: number) => val ? val.toFixed(2) : '0.00'
+                    }
+                  },
+                  colors: ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+                  grid: {
+                    strokeDashArray: 3,
+                    borderColor: 'rgba(0, 0, 0, 0.06)',
+                    xaxis: {
+                      lines: {
+                        show: true
+                      }
+                    },
+                    yaxis: {
+                      lines: {
+                        show: true
+                      }
+                    }
+                  },
+                  legend: {
+                    show: true,
+                    position: 'top',
+                    horizontalAlign: 'left',
+                    fontSize: '12px',
+                    markers: {
+                      width: 10,
+                      height: 10,
+                      radius: 2,
+                    },
+                  },
+                  tooltip: {
+                    theme: 'light',
+                    style: {
+                      fontSize: '12px',
+                    },
+                    y: {
+                      formatter: (val: number) => val ? val.toFixed(3) : 'N/A'
+                    }
+                  },
+                } as ApexOptions}
+              />
+            </div>
+          </div>
           <Table
             columns={["Link","Area","Zone","Depth","Month","Tow(min)","Catch(kg)","CPUE","Outlier"]}
             maxHeight={400}
@@ -526,5 +686,3 @@ export default function CPUEPage() {
     </div>
   )
 }
-
-
