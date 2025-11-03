@@ -4,6 +4,7 @@ import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger,
 import { useI18n } from '../lib/i18n'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
+import { GaugeChart } from '../components/GaugeChart'
 
 export default function ReportsComparisonPage() {
   const [data, setData] = useState<any | null>(null)
@@ -320,14 +321,62 @@ export default function ReportsComparisonPage() {
             </div>
           </div>
 
-          {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">CPUE</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.cpue_mean,0)/(series.length||1)).toFixed(2)}</div></div>
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Depth</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.depth_mean,0)/(series.length||1)).toFixed(2)}</div></div>
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Temp</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.temp_mean,0)/(series.length||1)).toFixed(2)}</div></div>
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">Salinity</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.sal_mean,0)/(series.length||1)).toFixed(2)}</div></div>
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">DO</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.do_mean,0)/(series.length||1)).toFixed(2)}</div></div>
-            <div className="rounded-xl border p-3"><div className="text-muted-foreground">pH</div><div className="text-xl font-semibold">{(series.reduce((a,b)=>a+b.ph_mean,0)/(series.length||1)).toFixed(2)}</div></div>
+          {/* KPIs with Gauge Charts */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div className="rounded-xl border bg-background p-3">
+              <GaugeChart
+                value={series.reduce((a,b)=>a+b.cpue_mean,0)/(series.length||1)}
+                min={0}
+                max={500}
+                label="CPUE"
+                unit="kg/hr"
+              />
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <GaugeChart
+                value={series.reduce((a,b)=>a+b.depth_mean,0)/(series.length||1)}
+                min={0}
+                max={100}
+                label="Depth"
+                unit="m"
+              />
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <GaugeChart
+                value={series.reduce((a,b)=>a+b.temp_mean,0)/(series.length||1)}
+                min={20}
+                max={35}
+                label="Temp"
+                unit="°C"
+              />
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <GaugeChart
+                value={series.reduce((a,b)=>a+b.sal_mean,0)/(series.length||1)}
+                min={25}
+                max={35}
+                label="Salinity"
+                unit="ppt"
+              />
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <GaugeChart
+                value={series.reduce((a,b)=>a+b.do_mean,0)/(series.length||1)}
+                min={0}
+                max={10}
+                label="DO"
+                unit="mg/L"
+              />
+            </div>
+            <div className="rounded-xl border bg-background p-3">
+              <GaugeChart
+                value={series.reduce((a,b)=>a+b.ph_mean,0)/(series.length||1)}
+                min={6}
+                max={9}
+                label="pH"
+                unit=""
+              />
+            </div>
           </div>
 
           {/* Environment and Top Stations (moved above Trend) */}
