@@ -163,7 +163,7 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
         style={{ height: '500px' }}
       >
         <MapContainer
-          center={[10.0, 100.0]}
+          center={[6.0, 100.0]}
           zoom={7.25}
           style={{ height: '100%', width: '100%' }}
           bounds={thailandBounds}
