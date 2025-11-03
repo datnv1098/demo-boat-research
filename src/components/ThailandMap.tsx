@@ -113,9 +113,8 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
 
         {/* Base map tile selector */}
         <div className="flex items-center space-x-2">
-          <Label className="text-sm">Base map</Label>
           <Select value={tileStyle} onValueChange={(v: any) => setTileStyle(v)}>
-            <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-[280px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="carto_voyager">Carto Voyager (clear land/sea)</SelectItem>
               <SelectItem value="osm">OSM Standard</SelectItem>
@@ -131,12 +130,18 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
         style={{ height: '520px' }}
       >
         <MapContainer
-          center={[6.0, 100.0]}
+          center={[5.0, 100.0]}
           zoom={7.25}
           style={{ height: '100%', width: '100%' }}
           bounds={thailandBounds}
           maxBounds={thailandBounds}
           maxBoundsViscosity={1.0}
+          dragging={true}
+          scrollWheelZoom={true}
+          touchZoom={true}
+          doubleClickZoom={true}
+          keyboard={true}
+          boxZoom={true}
         >
           {/* Base Map Layer */}
           <TileLayer
