@@ -829,25 +829,17 @@ export default function ReportsComparisonPage() {
                   },
                   stroke: {
                     curve: 'smooth',
-                    width: 2.5,
+                    width: 4,
                   },
                   dataLabels: {
                     enabled: false
                   },
                   markers: {
-                    size: 4,
+                    size: 6,
                     hover: {
-                      size: 6
-                    }
-                  },
-                  fill: {
-                    type: 'gradient',
-                    gradient: {
-                      shadeIntensity: 1,
-                      opacityFrom: 0.3,
-                      opacityTo: 0.05,
-                      stops: [0, 90, 100]
-                    }
+                      size: 8
+                    },
+                    strokeWidth: 2
                   },
                   xaxis: {
                     categories: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.period),
@@ -865,7 +857,7 @@ export default function ReportsComparisonPage() {
                       formatter: (val: number) => val.toFixed(2)
                     }
                   },
-                  colors: ['#60a5fa', '#f59e0b', '#ef4444', '#34d399'],
+                  colors: ['#3b82f6', '#f59e0b', '#ef4444', '#10b981'],
                   grid: {
                     strokeDashArray: 3,
                     borderColor: 'rgba(0, 0, 0, 0.06)',
