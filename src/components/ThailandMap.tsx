@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { MapContainer, TileLayer, GeoJSON, Circle, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Circle, Marker, Popup } from 'react-leaflet'
 import { LatLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
-  THAILAND_PROVINCES_GEOJSON,
   THAILAND_BOUNDS,
 } from '../data/thailandGeoData'
 import { Switch } from './ui/switch'
@@ -62,56 +61,19 @@ interface HeatmapPoint {
 
 export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = [] }: ThailandMapProps) {
   const { t } = useI18n()
-  const [showProvinces, setShowProvinces] = useState(false)
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showStations, setShowStations] = useState(true)
 
-  // Convert hotspot grid data to heatmap points (CPUE-based)
-  const allCells = hotspotData.flat().filter((cell: HotspotCell) => cell.cpue > 0 && cell.count > 0)
-  const maxCPUE = allCells.length > 0 ? Math.max(...allCells.map((c) => c.cpue)) : 1
-  
-  const heatmapPoints: HeatmapPoint[] = allCells
-    .sort((a: HotspotCell, b: HotspotCell) => b.cpue - a.cpue)
-    .slice(0, 50) // Top 50 cells for performance
-    .map((cell: HotspotCell) => ({
-      lat: cell.coordinates.lat,
-      lng: cell.coordinates.lon,
-      cpue: cell.cpue,
-    }))
+  // Points are derived from selected hotspot stations (not independent grid)
+  const visibleStations = stationData.filter((s) => !blacklistLinks.includes(s.link))
+  const maxCPUE = visibleStations.length > 0 ? Math.max(...visibleStations.map((s) => s.cpue)) : 1
 
-  // Style functions for GeoJSON layers
-  const provinceStyle = () => ({
-    fillColor: 'transparent',
-    weight: 0.75, // Giảm từ 1.5 xuống 0.75
-    opacity: 0.8,
-    color: '#2563eb',
-    dashArray: '',
-    fillOpacity: 0.1,
-  })
+  const heatmapPoints: HeatmapPoint[] = visibleStations
+    .sort((a, b) => b.cpue - a.cpue)
+    .slice(0, 50) // Top 50 stations for performance
+    .map((s) => ({ lat: s.lat, lng: s.lon, cpue: s.cpue }))
 
-  // Popup content for features
-  const onEachFeature = (feature: any, layer: any) => {
-    if (feature.properties) {
-      const props = feature.properties
-      let popupContent = `<div class="p-2">
-        <h3 class="font-semibold text-sm">${props.name}</h3>
-        <p class="text-xs text-gray-600">${props.name_en}</p>`
-
-      if (props.region) {
-        popupContent += `<p class="text-xs mt-1"><strong>${t('map.popup.region')}:</strong> ${props.region}</p>`
-      }
-
-      if (props.zone_type) {
-        const zoneTypeText =
-          props.zone_type === 'eez' ? t('map.popup.type.eez') : t('map.popup.type.fishing')
-        popupContent += `<p class="text-xs mt-1"><strong>${t('map.popup.type')}:</strong> ${zoneTypeText}</p>`
-      }
-
-      popupContent += `</div>`
-
-      layer.bindPopup(popupContent)
-    }
-  }
+  // Provincial overlay removed per request
 
   // Calculate bounds for Thailand
   const thailandBounds = new LatLngBounds(
@@ -145,16 +107,7 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
           </Label>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="provinces"
-            checked={showProvinces}
-            onCheckedChange={setShowProvinces}
-          />
-          <Label htmlFor="provinces" className="text-sm">
-            {t('map.switch.provinces')}
-          </Label>
-        </div>
+        {/* Provinces option removed */}
       </div>
 
       {/* Map Container */}
@@ -176,17 +129,10 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* Provincial Boundaries */}
-          {showProvinces && (
-            <GeoJSON
-              data={THAILAND_PROVINCES_GEOJSON as any}
-              style={provinceStyle}
-              onEachFeature={onEachFeature}
-            />
-          )}
+          {/* Provinces overlay removed */}
 
-          {/* Heatmap Overlay as Circles (CPUE-based) */}
-          {showHeatmap &&
+          {/* Heatmap Overlay as Circles (CPUE-based) - tied to stations toggle */}
+          {showStations && showHeatmap &&
             heatmapPoints.map((point: HeatmapPoint, index: number) => {
               const intensity = maxCPUE > 0 ? point.cpue / maxCPUE : 0
               const radius = Math.max(intensity * 15000, 3000)
@@ -208,7 +154,7 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
 
           {/* Hotspot Stations as Markers */}
           {showStations &&
-            stationData.filter((s) => !blacklistLinks.includes(s.link)).map((station: StationData, index: number) => (
+            visibleStations.map((station: StationData, index: number) => (
               <Marker key={index} position={[station.lat, station.lon]}>
                 <Popup>
                   <div className="p-2 min-w-[200px]">
