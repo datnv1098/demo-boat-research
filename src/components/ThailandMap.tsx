@@ -61,6 +61,8 @@ interface HeatmapPoint {
 
 export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = [] }: ThailandMapProps) {
   const { t } = useI18n()
+  // Keep parameter used to satisfy TS noUnusedParameters when overlay removed
+  void hotspotData
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showStations, setShowStations] = useState(true)
 
