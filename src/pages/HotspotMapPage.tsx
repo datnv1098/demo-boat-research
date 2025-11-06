@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Map } from 'lucide-react'
+import { Map as MapIcon } from 'lucide-react'
 import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
 import { ThailandMap } from '../components/ThailandMap'
@@ -25,6 +25,7 @@ interface StationData {
   salinity?: number
   monthLabel: string
   date: Date | null
+  speciesSet: string[]
 }
 
 export default function HotspotMapPage() {
@@ -35,6 +36,7 @@ export default function HotspotMapPage() {
   const [month, setMonth] = useState<string>('all')
   const [zone, setZone] = useState<string>('all')
   const [depthClass, setDepthClass] = useState<string>('all')
+  const [species, setSpecies] = useState<string>('all')
   const [percentileMode, setPercentileMode] = useState<'P90' | 'P95' | 'top10'>('P90')
 
   useEffect(() => {
@@ -100,10 +102,14 @@ export default function HotspotMapPage() {
       linkToHeader[String(h?.Link)] = h
     }
     const linkToCatchWeight: Record<string, number> = {}
+    const linkSpeciesSet = new globalThis.Map<string, Set<string>>()
     for (const c of catchRows) {
       const link = String(c?.Link)
       const w = Number(c?.total_weight) || 0
       linkToCatchWeight[link] = (linkToCatchWeight[link] || 0) + w
+      const spp = String(c?.btscodename || 'ALL')
+      if (!linkSpeciesSet.has(link)) linkSpeciesSet.set(link, new Set<string>())
+      linkSpeciesSet.get(link)!.add(spp)
     }
     // Match Water_QL by Station and Date
     const waterQlMap: Record<string, any> = {}
@@ -148,6 +154,7 @@ export default function HotspotMapPage() {
         salinity: water ? Number(water?.Salinity_surface) : undefined,
         monthLabel: toMonthLabel(String(h?.Date)),
         date,
+        speciesSet: Array.from(linkSpeciesSet.get(link) || []),
       })
     }
     return list
@@ -156,6 +163,15 @@ export default function HotspotMapPage() {
   const filterOptions = useMemo(() => {
     const zoneSet = new Set(stationData.map((r) => r.zone))
     const zones = Array.from(zoneSet).sort()
+
+    // Get all unique species from station data
+    const speciesSet = new Set<string>()
+    stationData.forEach((r) => {
+      if (r.speciesSet && r.speciesSet.length > 0) {
+        r.speciesSet.forEach((sp) => speciesSet.add(sp))
+      }
+    })
+    const speciesList = Array.from(speciesSet).sort()
 
     // Sort months by date descending
     const monthSet: Record<string, Date> = {}
@@ -171,7 +187,7 @@ export default function HotspotMapPage() {
       return dateB.getTime() - dateA.getTime() // Descending
     })
 
-    return { zones, months }
+    return { zones, months, species: speciesList }
   }, [stationData])
 
   const filtered = useMemo(() => {
@@ -183,10 +199,11 @@ export default function HotspotMapPage() {
       return (
         (month === 'all' || r.monthLabel === month) &&
         (zone === 'all' || r.zone === zone) &&
-        (depthClass === 'all' || depthToClass(r.depth) === depthClass)
+        (depthClass === 'all' || depthToClass(r.depth) === depthClass) &&
+        (species === 'all' || (r.speciesSet && r.speciesSet.includes(species)))
       )
     })
-  }, [stationData, month, zone, depthClass])
+  }, [stationData, month, zone, depthClass, species])
 
   // Calculate percentile threshold
   const percentileThreshold = useMemo(() => {
@@ -291,13 +308,13 @@ export default function HotspotMapPage() {
 
   return (
     <div>
-      <Header title={t('hot.title')} desc={t('hot.desc')} icon={<Map className="h-6 w-6" />} onExport={exportPDF} exportLabel={`${t('header.export')} PDF`} sticky={true} />
+      <Header title={t('hot.title')} desc={t('hot.desc')} icon={<MapIcon className="h-6 w-6" />} onExport={exportPDF} exportLabel={`${t('header.export')} PDF`} sticky={true} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
       {data && (
         <div className="space-y-4">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
               <Label>{t('hot.month')}</Label>
               <Select value={month} onValueChange={setMonth}>
@@ -332,6 +349,18 @@ export default function HotspotMapPage() {
                   <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
                   {depthClasses.map((d) => (
                     <SelectItem key={d} value={d}>{d} m</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('hot.species') || 'Species'}</Label>
+              <Select value={species} onValueChange={setSpecies}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
+                  {filterOptions.species.map((sp) => (
+                    <SelectItem key={sp} value={sp}>{sp}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

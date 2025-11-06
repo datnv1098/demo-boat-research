@@ -27,6 +27,7 @@ const translations: Translations = {
   'hot.desc': { th: 'อนุมานความหนาแน่น/CPUE มาตรฐานบนกริดเชิงพื้นที่-เวลา; จัดอันดับจุดร้อนตามสปีชีส์/เวลา', en: 'Heatmap of standardized CPUE across space-time; rank hotspots by species/time' },
   'hot.zone': { th: 'โซน', en: 'Zone' },
   'hot.depth': { th: 'ระดับความลึก', en: 'Depth Class' },
+  'hot.species': { th: 'ชนิด', en: 'Species' },
   'hot.percentile': { th: 'เกณฑ์ความร้อน', en: 'Hotspot Rank' },
   'hot.totalStations': { th: 'จำนวนสถานีทั้งหมด', en: 'Total Stations' },
   'hot.hotspotCount': { th: 'จุดร้อน', en: 'Hotspots' },
