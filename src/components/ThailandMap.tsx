@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { MapContainer, TileLayer, Circle, Marker, Popup } from 'react-leaflet'
+import { useState, useEffect } from 'react'
+import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from 'react-leaflet'
 import { LatLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -66,6 +66,7 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
   void hotspotData
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showStations, setShowStations] = useState(true)
+  const [showGrid, setShowGrid] = useState(true)
   const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('carto_voyager')
 
   // Points are derived from selected hotspot stations (not independent grid)
@@ -122,6 +123,17 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
             </SelectContent>
           </Select>
         </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="grid"
+            checked={showGrid}
+            onCheckedChange={setShowGrid}
+          />
+          <Label htmlFor="grid" className="text-sm">
+            {t('map.switch.grid') || 'Grid'}
+          </Label>
+        </div>
       </div>
 
       {/* Map Container */}
@@ -162,6 +174,9 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
           />
 
           {/* Provinces overlay removed */}
+
+          {/* Grid overlay */}
+          {showGrid && <GridOverlay spacing={1} stationData={visibleStations} />}
 
           {/* Heatmap Overlay as Circles (CPUE-based) - tied to stations toggle */}
           {showStations && showHeatmap &&
@@ -241,4 +256,166 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
       {/* Legend removed per request */}
     </div>
   )
+}
+
+function GridOverlay({
+  spacing = 1,
+  color = '#9ca3af',
+  weight = 0.75,
+  opacity = 0.5,
+  stationData = [],
+}: {
+  spacing?: number
+  color?: string
+  weight?: number
+  opacity?: number
+  stationData?: StationData[]
+}) {
+  const map = useMap()
+
+  // Function to count stations in a grid cell
+  const countStationsInCell = (cellLat: number, cellLon: number): number => {
+    return stationData.filter((station) => {
+      return (
+        station.lat >= cellLat &&
+        station.lat < cellLat + spacing &&
+        station.lon >= cellLon &&
+        station.lon < cellLon + spacing
+      )
+    }).length
+  }
+
+  // Function to get color based on station count
+  const getCellColor = (count: number): string => {
+    if (count === 0) return 'transparent'
+    if (count === 1) return '#86efac' // green-300 - xanh nhạt nhất
+    if (count === 2) return '#22c55e' // green-500 - xanh vừa
+    return '#15803d' // green-700 - xanh đậm nhất (3+)
+  }
+
+  useEffect(() => {
+    const group = L.layerGroup()
+    const bounds = map.getBounds()
+    const south = Math.floor(bounds.getSouth())
+    const north = Math.ceil(bounds.getNorth())
+    const west = Math.floor(bounds.getWest())
+    const east = Math.ceil(bounds.getEast())
+
+    // Draw grid cells as polygons with colors
+    for (let lat = south; lat < north; lat += spacing) {
+      for (let lon = west; lon < east; lon += spacing) {
+        const stationCount = countStationsInCell(lat, lon)
+        const cellColor = getCellColor(stationCount)
+
+        const cellBounds = [
+          [lat, lon],
+          [lat + spacing, lon],
+          [lat + spacing, lon + spacing],
+          [lat, lon + spacing],
+        ] as [number, number][]
+
+        const cell = L.polygon(cellBounds, {
+          fillColor: cellColor,
+          fillOpacity: cellColor === 'transparent' ? 0 : 0.4,
+          color: color,
+          weight: weight,
+          opacity: opacity,
+          dashArray: '4,4',
+        })
+
+        group.addLayer(cell)
+      }
+    }
+
+    // Draw grid lines
+    for (let lat = south; lat <= north; lat += spacing) {
+      const line = L.polyline(
+        [
+          [lat, west],
+          [lat, east],
+        ],
+        { color, weight, opacity, dashArray: '4,4' }
+      )
+      group.addLayer(line)
+    }
+
+    for (let lon = west; lon <= east; lon += spacing) {
+      const line = L.polyline(
+        [
+          [south, lon],
+          [north, lon],
+        ],
+        { color, weight, opacity, dashArray: '4,4' }
+      )
+      group.addLayer(line)
+    }
+
+    group.addTo(map)
+
+    const handleMove = () => {
+      group.clearLayers()
+      const b = map.getBounds()
+      const s = Math.floor(b.getSouth())
+      const n = Math.ceil(b.getNorth())
+      const w = Math.floor(b.getWest())
+      const e = Math.ceil(b.getEast())
+
+      // Redraw grid cells
+      for (let la = s; la < n; la += spacing) {
+        for (let lo = w; lo < e; lo += spacing) {
+          const stationCount = countStationsInCell(la, lo)
+          const cellColor = getCellColor(stationCount)
+
+          const cellBounds = [
+            [la, lo],
+            [la + spacing, lo],
+            [la + spacing, lo + spacing],
+            [la, lo + spacing],
+          ] as [number, number][]
+
+          const cell = L.polygon(cellBounds, {
+            fillColor: cellColor,
+            fillOpacity: cellColor === 'transparent' ? 0 : 0.4,
+            color: color,
+            weight: weight,
+            opacity: opacity,
+            dashArray: '4,4',
+          })
+
+          group.addLayer(cell)
+        }
+      }
+
+      // Redraw grid lines
+      for (let la = s; la <= n; la += spacing) {
+        const line = L.polyline(
+          [
+            [la, w],
+            [la, e],
+          ],
+          { color, weight, opacity, dashArray: '4,4' }
+        )
+        group.addLayer(line)
+      }
+      for (let lo = w; lo <= e; lo += spacing) {
+        const line = L.polyline(
+          [
+            [s, lo],
+            [n, lo],
+          ],
+          { color, weight, opacity, dashArray: '4,4' }
+        )
+        group.addLayer(line)
+      }
+    }
+
+    map.on('moveend zoomend', handleMove)
+
+    return () => {
+      map.off('moveend zoomend', handleMove)
+      map.removeLayer(group)
+    }
+  }, [map, spacing, color, weight, opacity, stationData])
+
+  return null
 }
