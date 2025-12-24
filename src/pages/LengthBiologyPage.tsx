@@ -5,6 +5,7 @@ import { Table } from '../components/common'
 import { useI18n } from '../lib/i18n'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
+import { CPUEVisualDashboard } from '../components/CPUEVisualDashboard'
 
 export default function LengthBiologyPage() {
   const [data, setData] = useState<any | null>(null)
@@ -48,8 +49,8 @@ export default function LengthBiologyPage() {
     const d = new Date(dateStr)
     const m = d.getMonth()
     const year = d.getFullYear()
-    const thMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-    const enMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+    const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     return (lang === 'th' ? thMonths[m] : enMonths[m]) + ' ' + year
   }
 
@@ -57,7 +58,7 @@ export default function LengthBiologyPage() {
     const map = new Map<string, any>()
     for (const h of headerRows) {
       const d = h?.Date ? new Date(String(h?.Date)) : null
-      const monthKey = d && !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,'0')}` : 'N/A'
+      const monthKey = d && !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'N/A'
       map.set(String(h?.Link), {
         zone: h?.Zone || 'N/A',
         monthLabel: toMonthLabel(String(h?.Date)),
@@ -189,7 +190,10 @@ export default function LengthBiologyPage() {
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
       {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
       {data && (
-        <div className="space-y-4">
+        <div className="space-y-8">
+          {/* Rich Visual Dashboard */}
+          <CPUEVisualDashboard data={filtered} />
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
               <Label>Species</Label>
@@ -529,7 +533,7 @@ export default function LengthBiologyPage() {
               <div className="rounded-xl border bg-background p-3">
                 <div className="text-sm font-medium mb-2">Details (Top 100)</div>
                 <Table
-                  columns={["Link","Species","Zone","Month","Lmean","L95","%<Lm50"]}
+                  columns={["Link", "Species", "Zone", "Month", "Lmean", "L95", "%<Lm50"]}
                   maxHeight={320}
                   minHeight="420px"
                   rows={details.slice(0, 100)}

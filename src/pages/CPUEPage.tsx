@@ -39,8 +39,8 @@ export default function CPUEPage() {
     const d = new Date(dateStr)
     const m = d.getMonth()
     const year = d.getFullYear()
-    const thMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-    const enMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+    const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     const label = (lang === 'th' ? thMonths[m] : enMonths[m]) + ' ' + year
     return label
   }
@@ -102,7 +102,7 @@ export default function CPUEPage() {
     const quarters = Array.from(new Set(cpueRecords.map((r) => r.quarterLabel))).sort()
     const areas = Array.from(new Set(cpueRecords.map((r) => r.area))).sort()
     const zones = Array.from(new Set(cpueRecords.map((r) => r.zone))).sort()
-    const depthClasses = ['<20','20–40','>40']
+    const depthClasses = ['<20', '20–40', '>40']
     return { quarters, areas, zones, depthClasses }
   }, [cpueRecords])
 
@@ -137,12 +137,12 @@ export default function CPUEPage() {
       // Create sortKey from original date for proper sorting
       const dateMatch = key.match(/(\d{4})/)
       const year = dateMatch ? dateMatch[1] : '0000'
-      const monthNames = lang === 'th' 
-        ? ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-        : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      const monthNames = lang === 'th'
+        ? ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+        : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
       const monthIndex = monthNames.findIndex(m => key.includes(m))
       const sortKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
-      
+
       const cur = map.get(key) || { month: key, cpue: 0, count: 0, sortKey }
       cur.cpue += r.cpue
       cur.count += 1
@@ -160,7 +160,7 @@ export default function CPUEPage() {
       // Extract Q and year for sorting: "Q1 2024" -> "2024-1"
       const match = key.match(/Q(\d+)\s+(\d{4})/)
       const sortKey = match ? `${match[2]}-${match[1]}` : key
-      
+
       const cur = map.get(key) || { quarter: key, cpue: 0, count: 0, sortKey }
       cur.cpue += r.cpue
       cur.count += 1
@@ -179,9 +179,9 @@ export default function CPUEPage() {
       (depthClass === 'all' || r.depthClass === depthClass) &&
       (quarter === 'all' || r.quarterLabel === quarter)
     ))
-    
+
     const areas = Array.from(new Set(unfilteredByArea.map(r => r.area))).sort()
-    
+
     // Get quarters and sort them chronologically
     const quarterSet = new Set(unfilteredByArea.map(r => r.quarterLabel))
     const quarters = Array.from(quarterSet).sort((a, b) => {
@@ -192,10 +192,10 @@ export default function CPUEPage() {
       const sortKeyB = matchB ? `${matchB[2]}-${matchB[1]}` : b
       return sortKeyA.localeCompare(sortKeyB)
     })
-    
+
     // Create a map structure: area -> quarter -> {cpue, count}
     const dataMap = new Map<string, Map<string, { cpue: number; count: number }>>()
-    
+
     for (const r of unfilteredByArea) {
       if (!dataMap.has(r.area)) {
         dataMap.set(r.area, new Map())
@@ -206,7 +206,7 @@ export default function CPUEPage() {
       cur.count += 1
       areaMap.set(r.quarterLabel, cur)
     }
-    
+
     // Convert to series format for ApexCharts
     const series = areas.map(area => {
       const areaData = dataMap.get(area)!
@@ -218,7 +218,7 @@ export default function CPUEPage() {
         })
       }
     })
-    
+
     return { series, categories: quarters }
   }, [cpueRecords, zone, depthClass, quarter])
 
@@ -263,18 +263,18 @@ export default function CPUEPage() {
             <div>
               <Label>Quarter</Label>
               <Select defaultValue={quarter} onValueChange={setQuarter}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   {filterOptions.quarters.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
-            </SelectContent>
-          </Select>
-        </div>
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label>Area</Label>
-          <Select defaultValue={area} onValueChange={setArea}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
+              <Select defaultValue={area} onValueChange={setArea}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   {filterOptions.areas.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
@@ -300,7 +300,7 @@ export default function CPUEPage() {
                 </SelectContent>
               </Select>
             </div>
-      </div>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border bg-background p-3">
@@ -667,7 +667,7 @@ export default function CPUEPage() {
             </div>
           </div>
           <Table
-            columns={["Link","Area","Zone","Depth","Month","Tow(min)","Catch(kg)","CPUE","Outlier"]}
+            columns={["Link", "Area", "Zone", "Depth", "Month", "Tow(min)", "Catch(kg)", "CPUE", "Outlier"]}
             maxHeight={400}
             rows={withOutlier.slice(0, 100).map((r) => [
               r.link,
