@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap, Circle } from 'react-leaflet'
 import { LatLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.heat'
 import {
-  THAILAND_BOUNDS,
+  THAILAND_PROVINCES_GEOJSON,
 } from '../data/thailandGeoData'
 import { Switch } from './ui/switch'
 import { Label } from './ui/label'
@@ -47,20 +48,42 @@ interface StationData {
 }
 
 interface ThailandMapProps {
-  hotspotData: HotspotCell[][]
-  stationData?: StationData[]
+  hotspotData: HotspotCell[][] // Keep for backward compatibility if needed
+  stationData?: StationData[] // Used for markers
+  rawPoints?: StationData[]   // Used for heatmap
   percentileThreshold?: number
   month: string
   blacklistLinks?: string[]
 }
 
-interface HeatmapPoint {
-  lat: number
-  lng: number
-  cpue: number
+// Heatmap Layer Component
+function HeatmapLayer({ points }: { points: [number, number, number][] }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!map || !points.length) return
+
+    // @ts-ignore - leaflet.heat doesn't have official types in some setups
+    const heatLayer = L.heatLayer(points, {
+      radius: 60,
+      blur: 45, // Increased blur for seamless distribution
+      max: 10,
+      gradient: {
+        0.05: '#00ff00', // Green (Sparse)
+        0.15: '#ffff00', // Yellow (Medium)
+        0.3: '#ff0000'   // Red (High density)
+      }
+    }).addTo(map)
+
+    return () => {
+      map.removeLayer(heatLayer)
+    }
+  }, [map, points])
+
+  return null
 }
 
-export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = [] }: ThailandMapProps) {
+export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], blacklistLinks = [] }: ThailandMapProps) {
   const { t } = useI18n()
   // Keep parameter used to satisfy TS noUnusedParameters when overlay removed
   void hotspotData
@@ -71,19 +94,35 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
 
   // Points are derived from selected hotspot stations (not independent grid)
   const visibleStations = stationData.filter((s) => !blacklistLinks.includes(s.link))
-  const maxCPUE = visibleStations.length > 0 ? Math.max(...visibleStations.map((s) => s.cpue)) : 1
 
-  const heatmapPoints: HeatmapPoint[] = visibleStations
-    .sort((a, b) => b.cpue - a.cpue)
-    .slice(0, 50) // Top 50 stations for performance
-    .map((s) => ({ lat: s.lat, lng: s.lon, cpue: s.cpue }))
+  // Use rawPoints for heatmap if available, otherwise fallback to grid
+  const pointsForHeatmap = rawPoints.length > 0 ? rawPoints : hotspotData.flat()
+
+  // @ts-ignore
+  const heatmapPoints: [number, number, number][] = pointsForHeatmap
+    .filter((p: any) => (p.cpue || 0) > 0)
+    .map((p: any) => [
+      p.lat || p.coordinates?.lat,
+      p.lon || p.coordinates?.lon,
+      p.cpue,
+    ] as [number, number, number])
+
+  // Style functions for GeoJSON layers
+  const provinceStyle = () => ({
+    fillColor: 'transparent',
+    weight: 0.75,
+    opacity: 0.8,
+    color: '#2563eb',
+    dashArray: '',
+    fillOpacity: 0.1,
+  })
 
   // Provincial overlay removed per request
 
-  // Calculate bounds for Thailand
-  const thailandBounds = new LatLngBounds(
-    [THAILAND_BOUNDS.southwest.lat, THAILAND_BOUNDS.southwest.lng],
-    [THAILAND_BOUNDS.northeast.lat, THAILAND_BOUNDS.northeast.lng]
+  // Calculate bounds for Thailand Marine Area
+  const marineBounds = new LatLngBounds(
+    [5.0, 96.5], // Southwest (Andaman)
+    [14.0, 104.5] // Northeast (Upper Gulf)
   )
 
   return (
@@ -138,15 +177,15 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
 
       {/* Map Container */}
       <div
-        className="relative z-0 w-full rounded-lg overflow-hidden border mt-2.5"
-        style={{ height: '520px' }}
+        className="w-full rounded-lg overflow-hidden border"
+        style={{ height: '600px' }} // Increased height for better view
       >
         <MapContainer
-          center={[5.0, 100.0]}
-          zoom={7.25}
+          center={[9.5, 100.5]}
+          zoom={6.5}
           style={{ height: '100%', width: '100%' }}
-          bounds={thailandBounds}
-          maxBounds={thailandBounds}
+          bounds={marineBounds}
+          maxBounds={marineBounds}
           maxBoundsViscosity={1.0}
           dragging={true}
           scrollWheelZoom={true}
@@ -161,43 +200,25 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
               tileStyle === 'carto_voyager'
                 ? '&copy; OpenStreetMap contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>'
                 : tileStyle === 'esri_ocean'
-                ? 'Tiles &copy; Esri — Sources: GEBCO, NOAA, National Geographic, DeLorme, NAVTEQ, and others'
-                : '&copy; OpenStreetMap contributors'
+                  ? 'Tiles &copy; Esri — Sources: GEBCO, NOAA, National Geographic, DeLorme, NAVTEQ, and others'
+                  : '&copy; OpenStreetMap contributors'
             }
             url={
               tileStyle === 'carto_voyager'
                 ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
                 : tileStyle === 'esri_ocean'
-                ? 'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
-                : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                  ? 'https://services.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Base/MapServer/tile/{z}/{y}/{x}'
+                  : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
             }
           />
 
-          {/* Provinces overlay removed */}
+          {/* Heatmap Overlay */}
+          {showHeatmap && (
+            <HeatmapLayer points={heatmapPoints} />
+          )}
 
           {/* Grid overlay */}
           {showGrid && <GridOverlay spacing={1} stationData={visibleStations} />}
-
-          {/* Heatmap Overlay as Circles (CPUE-based) - tied to stations toggle */}
-          {showStations && showHeatmap &&
-            heatmapPoints.map((point: HeatmapPoint, index: number) => {
-              const intensity = maxCPUE > 0 ? point.cpue / maxCPUE : 0
-              const radius = Math.max(intensity * 15000, 3000)
-              return (
-                <Circle
-                  key={index}
-                  center={[point.lat, point.lng]}
-                  radius={radius}
-                  pathOptions={{
-                    fillColor: intensity > 0.8 ? '#dc2626' : intensity > 0.6 ? '#ea580c' : intensity > 0.4 ? '#f59e0b' : '#fbbf24',
-                    fillOpacity: Math.max(0.2, intensity * 0.5),
-                    color: '#fff',
-                    weight: 1,
-                    stroke: true,
-                  }}
-                />
-              )
-            })}
 
           {/* Hotspot Stations as Markers */}
           {showStations &&
@@ -253,7 +274,18 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
         </MapContainer>
       </div>
 
-      {/* Legend removed per request */}
+      {/* Legend */}
+      <div className="flex justify-between items-center text-xs text-muted-foreground">
+        <div>
+          <strong>{t('map.legend.title')}</strong>
+          <span className="ml-2">{t('map.legend.province')}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>{t('map.legend.low')}</span>
+          <div className="w-32 h-3 bg-gradient-to-r from-[#00ff00] via-[#ffff00] to-[#ff0000] rounded"></div>
+          <span>{t('map.legend.high')}</span>
+        </div>
+      </div>
     </div>
   )
 }

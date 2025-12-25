@@ -38,6 +38,7 @@ export default function HotspotMapPage() {
   const [depthClass, setDepthClass] = useState<string>('all')
   const [species, setSpecies] = useState<string>('all')
   const [percentileMode, setPercentileMode] = useState<'P90' | 'P95' | 'top10'>('P90')
+  const [heatmapType, setHeatmapType] = useState<'cpue' | 'temp'>('cpue')
 
   useEffect(() => {
     fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
@@ -62,8 +63,8 @@ export default function HotspotMapPage() {
     const d = new Date(dateStr)
     const m = d.getMonth()
     const year = d.getFullYear()
-    const thMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
-    const enMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+    const enMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
     return (lang === 'th' ? thMonths[m] : enMonths[m]) + ' ' + year
   }
 
@@ -75,22 +76,30 @@ export default function HotspotMapPage() {
   }
 
   // Check if a location is in marine area (not on land)
-  // Primary check: depth > 0 means it's in the sea
   function isMarineLocation(lat: number, lon: number, depth?: number): boolean {
     // Must have valid depth > 0 (in sea)
     if (depth == null || !isFinite(depth) || depth <= 0) return false
-    
+
     // Check bounds for Thailand marine area (general bounds)
     const marineLatMin = 5.0
-    const marineLatMax = 14.0
-    const marineLonMin = 95.0
+    const marineLatMax = 14.5
+    const marineLonMin = 96.0
     const marineLonMax = 105.0
-    
+
     if (!isFinite(lat) || !isFinite(lon)) return false
     if (lat < marineLatMin || lat > marineLatMax) return false
     if (lon < marineLonMin || lon > marineLonMax) return false
-    
-    // If depth > 0 and within marine bounds, it's considered marine
+
+    // Strict check to exclude Vietnam's sea areas (East of Thailand)
+    if (lon > 103.0) return false
+
+    // Rough check to exclude Thailand's main land mass
+    // Central/North land: lat > 12.5 and 99.5 < lon < 102.5
+    if (lat > 12.8 && lon > 99.8 && lon < 102.0) return false
+
+    // Peninsula land: 7.0 < lat < 12.5 and 98.2 < lon < 100.0
+    if (lat > 7.0 && lat < 12.8 && lon > 98.5 && lon < 99.8) return false
+
     return true
   }
 
@@ -194,7 +203,7 @@ export default function HotspotMapPage() {
     return stationData.filter((r) => {
       // First check: must be in marine area (not on land)
       if (!isMarineLocation(r.lat, r.lon, r.depth)) return false
-      
+
       // Then apply other filters
       return (
         (month === 'all' || r.monthLabel === month) &&
@@ -225,32 +234,42 @@ export default function HotspotMapPage() {
 
   // Create grid for heatmap
   const grid = useMemo(() => {
-    const binSize = 0.5 // degrees
+    const binSize = 0.2 // degrees (finer grid for smoother heatmap)
     const latMin = 6
-    const latMax = 13
+    const latMax = 14
     const lonMin = 95
-    const lonMax = 102.5
+    const lonMax = 105
     const latBins = Math.ceil((latMax - latMin) / binSize)
     const lonBins = Math.ceil((lonMax - lonMin) / binSize)
-    const acc: { cpue: number; count: number }[][] = Array.from({ length: latBins }, () =>
-      Array(lonBins).fill(null).map(() => ({ cpue: 0, count: 0 }))
+    const acc: { value: number; count: number }[][] = Array.from({ length: latBins }, () =>
+      Array(lonBins).fill(null).map(() => ({ value: 0, count: 0 }))
     )
 
     for (const s of filtered) {
-      if (!isFinite(s.lat) || !isFinite(s.lon) || !isFinite(s.cpue)) continue
+      if (!isFinite(s.lat) || !isFinite(s.lon)) continue
+
+      let val = 0
+      if (heatmapType === 'cpue') {
+        val = s.cpue
+      } else {
+        val = s.temp || 0
+      }
+
+      if (!isFinite(val) || val <= 0) continue
       if (s.lat < latMin || s.lat > latMax || s.lon < lonMin || s.lon > lonMax) continue
+
       const r = Math.min(latBins - 1, Math.max(0, Math.floor((s.lat - latMin) / binSize)))
       const c = Math.min(lonBins - 1, Math.max(0, Math.floor((s.lon - lonMin) / binSize)))
-      acc[r][c].cpue += s.cpue
+      acc[r][c].value += val
       acc[r][c].count += 1
     }
 
-    // Average CPUE per cell
+    // Average value per cell
     const gridCells: HotspotCell[][] = acc.map((row, r) =>
       row.map((cell, c) => ({
         r,
         c,
-        cpue: cell.count > 0 ? cell.cpue / cell.count : 0,
+        cpue: cell.count > 0 ? cell.value / cell.count : 0,
         count: cell.count,
         coordinates: {
           lat: latMin + r * binSize + binSize / 2,
@@ -259,7 +278,7 @@ export default function HotspotMapPage() {
       }))
     )
     return gridCells
-  }, [filtered])
+  }, [filtered, heatmapType])
 
   // Hotspot stations (above threshold)
   const hotspotStations = useMemo(() => {
@@ -301,9 +320,9 @@ export default function HotspotMapPage() {
 
   // Map-only blacklist links to hide markers
   const blacklistLinks: string[] = [
-    'em202510245','em202502159','em202506201','em202511252','em202402015','em202510246',
-    'em202401002','em202506199','em202511251','em202408084','em202505194','em202511256',
-    'em202412126','em202410106','em202405056','em202507209','em202405050','em202412137'
+    'em202510245', 'em202502159', 'em202506201', 'em202511252', 'em202402015', 'em202510246',
+    'em202401002', 'em202506199', 'em202511251', 'em202408084', 'em202505194', 'em202511256',
+    'em202412126', 'em202410106', 'em202405056', 'em202507209', 'em202405050', 'em202412137'
   ]
 
   return (
@@ -368,14 +387,24 @@ export default function HotspotMapPage() {
             <div>
               <Label>{t('hot.percentile') || 'Hotspot Rank'}</Label>
               <Select value={percentileMode} onValueChange={(v: any) => setPercentileMode(v)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
                   <SelectItem value="P90">P90 (Top 10%)</SelectItem>
                   <SelectItem value="P95">P95 (Top 5%)</SelectItem>
                   <SelectItem value="top10">Top 10%</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('hot.heatmapType') || 'Heatmap Data'}</Label>
+              <Select value={heatmapType} onValueChange={(v: any) => setHeatmapType(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cpue">CPUE (Catch)</SelectItem>
+                  <SelectItem value="temp">Temperature</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Export controlled by Header's Export button */}
@@ -400,6 +429,7 @@ export default function HotspotMapPage() {
           <ThailandMap
             hotspotData={grid as any}
             stationData={hotspotStations}
+            rawPoints={filtered}
             month={month}
             blacklistLinks={blacklistLinks}
           />
