@@ -24232,6 +24232,17 @@
       "Station": "3000",
       "Zone": "Andaman",
       "Course": "S"
+    },
+    {
+      "Link": "em202403024",
+      "Date": "2024-03-04",
+      "LatStart": 6.70966,
+      "LongStart": 99.09542,
+      "Depth": 44.3,
+      "Tow": 60,
+      "Station": "9999",
+      "Zone": "Andaman",
+      "Course": "E"
     }
   ],
   "catch": [
@@ -33046,6 +33057,10 @@
     {
       "Link": "mock_202504000",
       "total_weight": 38.57727831986345
+    },
+    {
+      "Link": "em202403024",
+      "total_weight": 2500.0
     }
   ],
   "Water_QL": [
@@ -50672,6 +50687,14 @@
       "Temp_surface": 27.556470660215187,
       "DO_surface": 4.018068946963244,
       "Salinity_surface": 33.39717932259389
+    },
+    {
+      "year": 2024,
+      "month": 3,
+      "station": "9999",
+      "Temp_surface": 28.5,
+      "DO_surface": 6.5,
+      "Salinity_surface": 33.0
     }
   ]
 }

@@ -38,7 +38,7 @@ export default function HotspotMapPage() {
   const [depthClass, setDepthClass] = useState<string>('all')
   const [species, setSpecies] = useState<string>('all')
   const [percentileMode, setPercentileMode] = useState<'P90' | 'P95' | 'top10'>('P90')
-  const [heatmapType, setHeatmapType] = useState<'cpue' | 'temp'>('cpue')
+  const [heatmapType] = useState<'cpue' | 'temp'>('cpue')
 
   useEffect(() => {
     fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
@@ -393,16 +393,6 @@ export default function HotspotMapPage() {
                   <SelectItem value="P90">P90 (Top 10%)</SelectItem>
                   <SelectItem value="P95">P95 (Top 5%)</SelectItem>
                   <SelectItem value="top10">Top 10%</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{t('hot.heatmapType') || 'Heatmap Data'}</Label>
-              <Select value={heatmapType} onValueChange={(v: any) => setHeatmapType(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cpue">CPUE (Catch)</SelectItem>
-                  <SelectItem value="temp">Temperature</SelectItem>
                 </SelectContent>
               </Select>
             </div>
