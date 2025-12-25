@@ -115,7 +115,7 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
   return (
     <div className="space-y-4">
       {/* Layer Controls */}
-      <div className="relative z-50 flex flex-wrap gap-6 p-3 bg-muted/50 rounded-lg">
+      <div className="relative z-50 flex flex-wrap gap-6 bg-muted/50 rounded-lg">
         <div className="flex items-center space-x-2">
           <Switch
             id="heatmap"
