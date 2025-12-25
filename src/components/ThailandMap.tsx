@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, GeoJSON, Marker, Popup, useMap, Circle } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import { LatLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.heat'
-import {
-  THAILAND_PROVINCES_GEOJSON,
-} from '../data/thailandGeoData'
 import { Switch } from './ui/switch'
 import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
@@ -89,7 +86,7 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
   void hotspotData
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showStations, setShowStations] = useState(true)
-  const [showGrid, setShowGrid] = useState(true)
+  const [showGrid, setShowGrid] = useState(false)
   const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('carto_voyager')
 
   // Points are derived from selected hotspot stations (not independent grid)
@@ -106,16 +103,6 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
       p.lon || p.coordinates?.lon,
       p.cpue,
     ] as [number, number, number])
-
-  // Style functions for GeoJSON layers
-  const provinceStyle = () => ({
-    fillColor: 'transparent',
-    weight: 0.75,
-    opacity: 0.8,
-    color: '#2563eb',
-    dashArray: '',
-    fillOpacity: 0.1,
-  })
 
   // Provincial overlay removed per request
 
