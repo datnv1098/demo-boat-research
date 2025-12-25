@@ -401,20 +401,6 @@ export default function HotspotMapPage() {
           {/* Export controlled by Header's Export button */}
 
           {/* Stats */}
-          <div className="flex gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">{t('hot.totalStations') || 'Total Stations'}: </span>
-              <span className="font-medium">{filtered.length}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">{t('hot.hotspotCount') || 'Hotspots'}: </span>
-              <span className="font-medium text-red-600">{hotspotStations.length}</span>
-            </div>
-            <div>
-              <span className="text-muted-foreground">{t('hot.threshold') || 'Threshold'}: </span>
-              <span className="font-medium">{percentileThreshold.toFixed(2)} kg/hr</span>
-            </div>
-          </div>
 
           {/* Map */}
           <ThailandMap
