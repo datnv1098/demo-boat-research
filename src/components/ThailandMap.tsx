@@ -142,7 +142,7 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
         <div className="flex items-center space-x-2">
           <Select value={tileStyle} onValueChange={(v: any) => setTileStyle(v)}>
             <SelectTrigger className="w-[280px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
+            <SelectContent side="top">
               <SelectItem value="carto_voyager">{t('map.tile.carto')}</SelectItem>
               <SelectItem value="osm">{t('map.tile.osm')}</SelectItem>
               <SelectItem value="esri_ocean">{t('map.tile.esri')}</SelectItem>
