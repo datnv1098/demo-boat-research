@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
-import { FileDown, MapPin, Target, Anchor, Fish, ChevronDown, Calendar, ArrowDownUp } from 'lucide-react'
+import { MapPin, Target, Anchor, Fish, ChevronDown, Calendar, ArrowDownUp } from 'lucide-react'
 
 interface CPUEVisualDashboardProps {
     data: any[]
@@ -169,16 +169,16 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                     ))}
                 </div>
 
-                <div className="bg-[#1b7c43] text-white px-6 py-2 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-[#166436] transition-all shadow-md active:scale-95">
-                    <div className="p-1.5 bg-white/20 rounded-md">
-                        <FileDown className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <div className="text-[10px] leading-tight opacity-80 uppercase tracking-widest font-bold">Download Report</div>
-                        <div className="text-lg font-black leading-tight tracking-tighter italic">EXCEL</div>
-                    </div>
-                    <ChevronDown className="h-5 w-5 ml-2" />
-                </div>
+                {/*<div className="bg-[#1b7c43] text-white px-6 py-2 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-[#166436] transition-all shadow-md active:scale-95">*/}
+                {/*    <div className="p-1.5 bg-white/20 rounded-md">*/}
+                {/*        <FileDown className="h-6 w-6" />*/}
+                {/*    </div>*/}
+                {/*    <div>*/}
+                {/*        <div className="text-[10px] leading-tight opacity-80 uppercase tracking-widest font-bold">Download Report</div>*/}
+                {/*        <div className="text-lg font-black leading-tight tracking-tighter italic">EXCEL</div>*/}
+                {/*    </div>*/}
+                {/*    <ChevronDown className="h-5 w-5 ml-2" />*/}
+                {/*</div>*/}
             </div>
 
             {/* Main Content Grid */}
@@ -186,7 +186,7 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
 
                 {/* Left Measurement Box */}
                 <div className="col-span-12 lg:col-span-4 space-y-8">
-                    <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-blue-600 relative overflow-hidden group hover:shadow-2xl transition-all duration-500">
+                    <div className="bg-white rounded-[2rem] p-8 shadow-xl border-blue-600 relative overflow-hidden group hover:shadow-2xl transition-all duration-500">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <Fish className="h-32 w-32 rotate-12" />
                         </div>
@@ -208,7 +208,7 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                     </div>
 
                     {/* Lmean Distribution */}
-                    <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-blue-400">
+                    <div className="bg-white rounded-[2rem] p-8 shadow-xl border-blue-400">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-xl font-extrabold text-blue-900 tracking-tight italic">Lmean Distribution</h3>
                             <div className="bg-blue-50 p-2 rounded-lg"><Target className="h-5 w-5 text-blue-600" /></div>
@@ -236,7 +236,7 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                 <div className="col-span-12 lg:col-span-8 space-y-8">
 
                     {/* Main Bar Chart */}
-                    <div className="bg-white rounded-[2.5rem] p-10 shadow-xl relative border border-blue-800">
+                    <div className="bg-white rounded-[2.5rem] p-10 shadow-xl relative border-blue-800">
                         <div className="flex justify-between items-center mb-10">
                             <div>
                                 <h2 className="text-3xl font-black text-blue-900 tracking-tighter italic">CPUE TREND ANALYSIS</h2>
