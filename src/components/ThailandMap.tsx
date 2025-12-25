@@ -134,7 +134,7 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
             onCheckedChange={setShowStations}
           />
           <Label htmlFor="stations" className="text-sm">
-            {t('map.switch.stations') || 'Hotspot Stations'}
+            {t('map.switch.stations')}
           </Label>
         </div>
 
@@ -143,9 +143,9 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
           <Select value={tileStyle} onValueChange={(v: any) => setTileStyle(v)}>
             <SelectTrigger className="w-[280px]"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="carto_voyager">Carto Voyager (clear land/sea)</SelectItem>
-              <SelectItem value="osm">OSM Standard</SelectItem>
-              <SelectItem value="esri_ocean">Esri Ocean (labels)</SelectItem>
+              <SelectItem value="carto_voyager">{t('map.tile.carto')}</SelectItem>
+              <SelectItem value="osm">{t('map.tile.osm')}</SelectItem>
+              <SelectItem value="esri_ocean">{t('map.tile.esri')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -157,7 +157,7 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
             onCheckedChange={setShowGrid}
           />
           <Label htmlFor="grid" className="text-sm">
-            {t('map.switch.grid') || 'Grid'}
+            {t('map.switch.grid')}
           </Label>
         </div>
       </div>

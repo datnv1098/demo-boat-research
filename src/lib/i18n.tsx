@@ -64,6 +64,10 @@ const translations: Translations = {
   'map.legend.high': { th: 'สูง', en: 'High' },
   // Popup
   'map.switch.stations': { th: '📍 สถานีจุดร้อน', en: '📍 Hotspot Stations' },
+  'map.switch.grid': { th: '📏 ตารางกริด', en: '📏 Grid overlay' },
+  'map.tile.carto': { th: 'Carto Voyager (เห็นบก/ทะเลชัดเจน)', en: 'Carto Voyager (clear land/sea)' },
+  'map.tile.osm': { th: 'OSM มาตรฐาน', en: 'OSM Standard' },
+  'map.tile.esri': { th: 'Esri Ocean (มีป้ายกำกับ)', en: 'Esri Ocean (labels)' },
   'map.popup.region': { th: 'ภูมิภาค', en: 'Region' },
   'map.popup.type': { th: 'ประเภท', en: 'Type' },
   'map.popup.type.eez': { th: 'เขตเศรษฐกิจจำเพาะ', en: 'Exclusive Economic Zone' },
