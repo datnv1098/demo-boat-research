@@ -4,13 +4,7 @@ import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, Select
 import { useI18n } from '../lib/i18n'
 import { ThailandMap } from '../components/ThailandMap'
 
-interface HotspotCell {
-  r: number
-  c: number
-  cpue: number
-  coordinates: { lat: number; lon: number }
-  count: number
-}
+
 
 interface StationData {
   link: string
@@ -49,13 +43,13 @@ const EXTRA_MONITORING_POINTS = [
 
 export default function HotspotMapPage() {
   const [data, setData] = useState<any | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [, setError] = useState<string | null>(null)
   const { t, lang } = useI18n()
 
   const [month, setMonth] = useState<string>('all')
   const [zone, setZone] = useState<string>('all')
-  const [depthClass, setDepthClass] = useState<string>('all')
-  const [species, setSpecies] = useState<string>('all')
+  const [depthClass] = useState<string>('all')
+  const [species] = useState<string>('all')
   const [percentileMode, setPercentileMode] = useState<'P90' | 'P95' | 'top10'>('P90')
   const [heatmapType] = useState<'cpue' | 'temp'>('cpue')
 
@@ -139,13 +133,6 @@ export default function HotspotMapPage() {
       const cpue = isFinite(hours) && hours > 0 ? totalCatch / hours : NaN
       if (!isFinite(cpue)) continue
 
-      const date = h?.Date ? new Date(String(h?.Date)) : null
-      const monthIdx = date ? date.getMonth() + 1 : null
-      const yearVal = date ? date.getFullYear() : null
-      const stationCode = String(h?.Station || '')
-      const waterKey = `${stationCode}_${yearVal}_${monthIdx}`
-      const water = waterQlMap[waterKey]
-
       const latStart = Number(h?.LatStart)
       const lonStart = Number(h?.LongStart)
       const lat = isFinite(latStart) ? latStart : NaN
@@ -156,7 +143,6 @@ export default function HotspotMapPage() {
 
     // 2. Add extra monitoring points from our new variable
     for (const p of EXTRA_MONITORING_POINTS) {
-      const date = new Date(p.Date)
       list.push({
         link: p.Link,
         lat: p.LatStart,
@@ -166,7 +152,7 @@ export default function HotspotMapPage() {
         depth: p.Depth,
         course: p.Course,
         monthLabel: toMonthLabel(p.Date),
-        date: date,
+        date: new Date(p.Date),
         speciesSet: ['ALL'],
       })
     }
@@ -266,7 +252,7 @@ export default function HotspotMapPage() {
     win.document.close()
   }
 
-  const depthClasses = ['<20', '20–40', '>40']
+  // const depthClasses = ['<20', '20–40', '>40']
   const blacklistLinks: string[] = []
 
   return (
