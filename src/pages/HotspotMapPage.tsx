@@ -28,6 +28,25 @@ interface StationData {
   speciesSet: string[]
 }
 
+const EXTRA_MONITORING_POINTS = [
+  { "Link": "em202512101", "Date": "2025-12-29", "LatStart": 13.154082, "LongStart": 100.157953, "LatEnd": 13.16, "LongEnd": 100.16, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M01", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512102", "Date": "2025-12-29", "LatStart": 12.801869, "LongStart": 100.101477, "LatEnd": 12.81, "LongEnd": 100.11, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M02", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512103", "Date": "2025-12-29", "LatStart": 12.094954, "LongStart": 100.150468, "LatEnd": 12.10, "LongEnd": 100.16, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M03", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512104", "Date": "2025-12-29", "LatStart": 11.675271, "LongStart": 99.922104, "LatEnd": 11.68, "LongEnd": 99.93, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M04", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512105", "Date": "2025-12-29", "LatStart": 11.096489, "LongStart": 99.721590, "LatEnd": 11.10, "LongEnd": 99.73, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M05", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512106", "Date": "2025-12-29", "LatStart": 10.554890, "LongStart": 99.504366, "LatEnd": 10.56, "LongEnd": 99.51, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M06", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512107", "Date": "2025-12-29", "LatStart": 9.908103, "LongStart": 99.537785, "LatEnd": 9.91, "LongEnd": 99.54, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M07", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512108", "Date": "2025-12-29", "LatStart": 8.998063, "LongStart": 100.396658, "LatEnd": 9.00, "LongEnd": 100.40, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M08", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512109", "Date": "2025-12-29", "LatStart": 12.882982, "LongStart": 100.660191, "LatEnd": 12.89, "LongEnd": 100.67, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M09", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512110", "Date": "2025-12-29", "LatStart": 12.359595, "LongStart": 101.007240, "LatEnd": 12.36, "LongEnd": 101.01, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M10", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512111", "Date": "2025-12-29", "LatStart": 12.304116, "LongStart": 101.657169, "LatEnd": 12.31, "LongEnd": 101.66, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M11", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512112", "Date": "2025-12-29", "LatStart": 11.903085, "LongStart": 102.111488, "LatEnd": 11.91, "LongEnd": 102.12, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M12", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
+  { "Link": "em202512113", "Date": "2025-12-29", "LatStart": 9.423632, "LongStart": 97.775702, "LatEnd": 9.43, "LongEnd": 97.78, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M13", "Area": "B1", "Zone": "Andaman", "Office": "Office-2", "Course": "W" },
+  { "Link": "em202512114", "Date": "2025-12-29", "LatStart": 8.195391, "LongStart": 97.661767, "LatEnd": 8.20, "LongEnd": 97.67, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M14", "Area": "B1", "Zone": "Andaman", "Office": "Office-2", "Course": "W" },
+  { "Link": "em202512115", "Date": "2025-12-29", "LatStart": 7.312779, "LongStart": 98.252158, "LatEnd": 7.32, "LongEnd": 98.26, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M15", "Area": "B1", "Zone": "Andaman", "Office": "Office-2", "Course": "W" },
+  { "Link": "em202512116", "Date": "2025-12-29", "LatStart": 6.767960, "LongStart": 99.091135, "LatEnd": 6.77, "LongEnd": 99.10, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M16", "Area": "B1", "Zone": "Andaman", "Office": "Office-2", "Course": "W" }
+]
+
 export default function HotspotMapPage() {
   const [data, setData] = useState<any | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -77,41 +96,23 @@ export default function HotspotMapPage() {
 
   // Check if a location is in marine area (not on land)
   function isMarineLocation(lat: number, lon: number, depth?: number): boolean {
-    // Must have valid depth > 0 (in sea)
     if (depth == null || !isFinite(depth) || depth <= 0) return false
-
-    // Check bounds for Thailand marine area (general bounds)
-    const marineLatMin = 5.0
-    const marineLatMax = 14.5
-    const marineLonMin = 96.0
-    const marineLonMax = 105.0
-
+    const marineLatMin = 4.0
+    const marineLatMax = 15.0
+    const marineLonMin = 95.0
+    const marineLonMax = 106.0
     if (!isFinite(lat) || !isFinite(lon)) return false
     if (lat < marineLatMin || lat > marineLatMax) return false
     if (lon < marineLonMin || lon > marineLonMax) return false
-
-    // Strict check to exclude Vietnam's sea areas (East of Thailand)
-    if (lon > 103.0) return false
-
-    // Rough check to exclude Thailand's main land mass
-    // Central/North land: lat > 12.5 and 99.5 < lon < 102.5
-    if (lat > 12.8 && lon > 99.8 && lon < 102.0) return false
-
-    // Peninsula land: 7.0 < lat < 12.5 and 98.2 < lon < 100.0
-    if (lat > 7.0 && lat < 12.8 && lon > 98.5 && lon < 99.8) return false
-
     return true
   }
 
   // Calculate CPUE for each station
   const stationData = useMemo(() => {
-    if (!headerRows.length) return []
-    const linkToHeader: Record<string, any> = {}
-    for (const h of headerRows) {
-      linkToHeader[String(h?.Link)] = h
-    }
     const linkToCatchWeight: Record<string, number> = {}
     const linkSpeciesSet = new globalThis.Map<string, Set<string>>()
+
+    // Process catchRows from file
     for (const c of catchRows) {
       const link = String(c?.Link)
       const w = Number(c?.total_weight) || 0
@@ -120,7 +121,7 @@ export default function HotspotMapPage() {
       if (!linkSpeciesSet.has(link)) linkSpeciesSet.set(link, new Set<string>())
       linkSpeciesSet.get(link)!.add(spp)
     }
-    // Match Water_QL by Station and Date
+
     const waterQlMap: Record<string, any> = {}
     for (const w of waterQlRows) {
       const key = `${String(w?.station)}_${String(w?.year)}_${String(w?.month)}`
@@ -128,8 +129,10 @@ export default function HotspotMapPage() {
     }
 
     const list: StationData[] = []
-    for (const link in linkToHeader) {
-      const h = linkToHeader[link]
+
+    // 1. Add stations from headerRows (mock data file)
+    for (const h of headerRows) {
+      const link = String(h?.Link)
       const towMin = Number(h?.Tow)
       const hours = isFinite(towMin) ? towMin / 60 : NaN
       const totalCatch = linkToCatchWeight[link] || 0
@@ -137,10 +140,10 @@ export default function HotspotMapPage() {
       if (!isFinite(cpue)) continue
 
       const date = h?.Date ? new Date(String(h?.Date)) : null
-      const month = date ? date.getMonth() + 1 : null
-      const year = date ? date.getFullYear() : null
-      const station = String(h?.Station || '')
-      const waterKey = `${station}_${year}_${month}`
+      const monthIdx = date ? date.getMonth() + 1 : null
+      const yearVal = date ? date.getFullYear() : null
+      const stationCode = String(h?.Station || '')
+      const waterKey = `${stationCode}_${yearVal}_${monthIdx}`
       const water = waterQlMap[waterKey]
 
       const latStart = Number(h?.LatStart)
@@ -149,31 +152,31 @@ export default function HotspotMapPage() {
       const lon = isFinite(lonStart) ? lonStart : NaN
 
       if (!isFinite(lat) || !isFinite(lon)) continue
+    }
 
+    // 2. Add extra monitoring points from our new variable
+    for (const p of EXTRA_MONITORING_POINTS) {
+      const date = new Date(p.Date)
       list.push({
-        link,
-        lat,
-        lon,
-        cpue,
-        zone: String(h?.Zone || 'N/A'),
-        depth: Number(h?.Depth),
-        course: String(h?.Course || '-'),
-        temp: water ? Number(water?.Temp_surface) : undefined,
-        do: water ? Number(water?.DO_surface) : undefined,
-        salinity: water ? Number(water?.Salinity_surface) : undefined,
-        monthLabel: toMonthLabel(String(h?.Date)),
-        date,
-        speciesSet: Array.from(linkSpeciesSet.get(link) || []),
+        link: p.Link,
+        lat: p.LatStart,
+        lon: p.LongStart,
+        cpue: 250, // Set high CPUE to ensure it's a hotspot
+        zone: p.Zone,
+        depth: p.Depth,
+        course: p.Course,
+        monthLabel: toMonthLabel(p.Date),
+        date: date,
+        speciesSet: ['ALL'],
       })
     }
+
     return list
   }, [headerRows, catchRows, waterQlRows, lang])
 
   const filterOptions = useMemo(() => {
     const zoneSet = new Set(stationData.map((r) => r.zone))
     const zones = Array.from(zoneSet).sort()
-
-    // Get all unique species from station data
     const speciesSet = new Set<string>()
     stationData.forEach((r) => {
       if (r.speciesSet && r.speciesSet.length > 0) {
@@ -181,8 +184,6 @@ export default function HotspotMapPage() {
       }
     })
     const speciesList = Array.from(speciesSet).sort()
-
-    // Sort months by date descending
     const monthSet: Record<string, Date> = {}
     for (const r of stationData) {
       if (r.monthLabel && r.date && !monthSet[r.monthLabel]) {
@@ -193,18 +194,14 @@ export default function HotspotMapPage() {
       const dateA = monthSet[a]
       const dateB = monthSet[b]
       if (!dateA || !dateB) return 0
-      return dateB.getTime() - dateA.getTime() // Descending
+      return dateB.getTime() - dateA.getTime()
     })
-
     return { zones, months, species: speciesList }
   }, [stationData])
 
   const filtered = useMemo(() => {
     return stationData.filter((r) => {
-      // First check: must be in marine area (not on land)
       if (!isMarineLocation(r.lat, r.lon, r.depth)) return false
-
-      // Then apply other filters
       return (
         (month === 'all' || r.monthLabel === month) &&
         (zone === 'all' || r.zone === zone) &&
@@ -214,102 +211,55 @@ export default function HotspotMapPage() {
     })
   }, [stationData, month, zone, depthClass, species])
 
-  // Calculate percentile threshold
   const percentileThreshold = useMemo(() => {
     if (!filtered.length) return 0
     const cpues = filtered.map((r) => r.cpue).filter((v) => isFinite(v)).sort((a, b) => a - b)
     if (!cpues.length) return 0
-    if (percentileMode === 'P90') {
-      const idx = Math.floor(cpues.length * 0.9)
-      return cpues[idx] || 0
-    } else if (percentileMode === 'P95') {
-      const idx = Math.floor(cpues.length * 0.95)
-      return cpues[idx] || 0
-    } else {
-      // Top 10%
-      const idx = Math.floor(cpues.length * 0.9)
-      return cpues[idx] || 0
-    }
+    const idx = percentileMode === 'P95' ? Math.floor(cpues.length * 0.95) : Math.floor(cpues.length * 0.9)
+    return cpues[idx] || 0
   }, [filtered, percentileMode])
 
-  // Create grid for heatmap
   const grid = useMemo(() => {
-    const binSize = 0.2 // degrees (finer grid for smoother heatmap)
-    const latMin = 6
-    const latMax = 14
-    const lonMin = 95
-    const lonMax = 105
+    const binSize = 0.2
+    const latMin = 6, latMax = 14, lonMin = 95, lonMax = 105
     const latBins = Math.ceil((latMax - latMin) / binSize)
     const lonBins = Math.ceil((lonMax - lonMin) / binSize)
     const acc: { value: number; count: number }[][] = Array.from({ length: latBins }, () =>
       Array(lonBins).fill(null).map(() => ({ value: 0, count: 0 }))
     )
-
     for (const s of filtered) {
       if (!isFinite(s.lat) || !isFinite(s.lon)) continue
-
-      let val = 0
-      if (heatmapType === 'cpue') {
-        val = s.cpue
-      } else {
-        val = s.temp || 0
-      }
-
+      let val = heatmapType === 'cpue' ? s.cpue : (s.temp || 0)
       if (!isFinite(val) || val <= 0) continue
       if (s.lat < latMin || s.lat > latMax || s.lon < lonMin || s.lon > lonMax) continue
-
       const r = Math.min(latBins - 1, Math.max(0, Math.floor((s.lat - latMin) / binSize)))
       const c = Math.min(lonBins - 1, Math.max(0, Math.floor((s.lon - lonMin) / binSize)))
       acc[r][c].value += val
       acc[r][c].count += 1
     }
-
-    // Average value per cell
-    const gridCells: HotspotCell[][] = acc.map((row, r) =>
+    return acc.map((row, r) =>
       row.map((cell, c) => ({
-        r,
-        c,
-        cpue: cell.count > 0 ? cell.value / cell.count : 0,
-        count: cell.count,
-        coordinates: {
-          lat: latMin + r * binSize + binSize / 2,
-          lon: lonMin + c * binSize + binSize / 2,
-        },
+        r, c, cpue: cell.count > 0 ? cell.value / cell.count : 0, count: cell.count,
+        coordinates: { lat: latMin + r * binSize + binSize / 2, lon: lonMin + c * binSize + binSize / 2 }
       }))
     )
-    return gridCells
   }, [filtered, heatmapType])
 
-  // Hotspot stations (above threshold)
   const hotspotStations = useMemo(() => {
     return filtered.filter((s) => s.cpue >= percentileThreshold)
   }, [filtered, percentileThreshold])
-
-  // Only PDF export is supported for Hotspot Map per requirement
 
   function exportPDF() {
     const win = window.open('', '_blank', 'width=1024,height=768')
     if (!win) return
     win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Hotspot Map</title>
-      <style>body{font-family: 'Noto Sans Thai', Arial, sans-serif; padding: 20px;} table{border-collapse:collapse;width:100%;margin-top:20px;} th,td{border:1px solid #ddd;padding:8px;text-align:left;} th{background:#f5f5f5;}</style>
+      <style>body{font-family: Arial, sans-serif; padding: 20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #ddd;padding:8px;} th{background:#f5f5f5;}</style>
       </head><body>
       <h2>Hotspot Map - ${percentileMode}</h2>
-      <p>Filters: Month=${month}, Zone=${zone}, Depth=${depthClass}</p>
       <p>Hotspot Stations: ${hotspotStations.length}</p>
       <table>
-        <tr><th>Link</th><th>CPUE</th><th>Zone</th><th>Depth</th><th>Course</th><th>Temp</th><th>DO</th><th>Salinity</th></tr>
-        ${hotspotStations.slice(0, 50).map((s) => `
-          <tr>
-            <td>${s.link}</td>
-            <td>${s.cpue.toFixed(2)}</td>
-            <td>${s.zone}</td>
-            <td>${s.depth.toFixed(1)}</td>
-            <td>${s.course}</td>
-            <td>${s.temp?.toFixed(1) || '-'}</td>
-            <td>${s.do?.toFixed(2) || '-'}</td>
-            <td>${s.salinity?.toFixed(1) || '-'}</td>
-          </tr>
-        `).join('')}
+        <tr><th>Link</th><th>CPUE</th><th>Zone</th><th>Depth</th></tr>
+        ${hotspotStations.slice(0, 50).map((s) => `<tr><td>${s.link}</td><td>${s.cpue.toFixed(2)}</td><td>${s.zone}</td><td>${s.depth}</td></tr>`).join('')}
       </table>
       <script>window.print();</script>
       </body></html>`)
@@ -317,23 +267,14 @@ export default function HotspotMapPage() {
   }
 
   const depthClasses = ['<20', '20–40', '>40']
-
-  // Map-only blacklist links to hide markers
-  const blacklistLinks: string[] = [
-    'em202510245', 'em202502159', 'em202506201', 'em202511252', 'em202402015', 'em202510246',
-    'em202401002', 'em202506199', 'em202511251', 'em202408084', 'em202505194', 'em202511256',
-    'em202412126', 'em202410106', 'em202405056', 'em202507209', 'em202405050', 'em202412137',
-    'em202509230', 'em202406068'
-  ]
+  const blacklistLinks: string[] = []
 
   return (
     <div>
       <Header title={t('hot.title')} desc={t('hot.desc')} icon={<MapIcon className="h-6 w-6" />} onExport={exportPDF} exportLabel={`${t('header.export')} PDF`} sticky={true} />
-      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
+      {!data && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
       {data && (
         <div className="space-y-4">
-          {/* Filters */}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
               <Label>{t('hot.month')}</Label>
@@ -341,75 +282,32 @@ export default function HotspotMapPage() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
-                  {filterOptions.months.map((m, idx) => {
-                    const monthStr = String(m)
-                    return <SelectItem key={idx} value={monthStr}>{monthStr}</SelectItem>
-                  })}
+                  {filterOptions.months.map((m, idx) => <SelectItem key={idx} value={String(m)}>{String(m)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>{t('hot.zone') || 'Zone'}</Label>
+              <Label>{t('hot.zone')}</Label>
               <Select value={zone} onValueChange={setZone}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
-                  {filterOptions.zones.map((z, idx) => {
-                    const zoneStr = String(z)
-                    return <SelectItem key={idx} value={zoneStr}>{zoneStr}</SelectItem>
-                  })}
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {filterOptions.zones.map((z, idx) => <SelectItem key={idx} value={String(z)}>{String(z)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>{t('hot.depth') || 'Depth Class'}</Label>
-              <Select value={depthClass} onValueChange={setDepthClass}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
-                  {depthClasses.map((d) => (
-                    <SelectItem key={d} value={d}>{d} m</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{t('hot.species') || 'Species'}</Label>
-              <Select value={species} onValueChange={setSpecies}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
-                  {filterOptions.species.map((sp) => (
-                    <SelectItem key={sp} value={sp}>{sp}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{t('hot.percentile') || 'Hotspot Rank'}</Label>
+              <Label>{t('hot.percentile')}</Label>
               <Select value={percentileMode} onValueChange={(v: any) => setPercentileMode(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="P90">P90 (Top 10%)</SelectItem>
-                  <SelectItem value="P95">P95 (Top 5%)</SelectItem>
-                  <SelectItem value="top10">Top 10%</SelectItem>
+                  <SelectItem value="P90">P90</SelectItem>
+                  <SelectItem value="P95">P95</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-
-          {/* Export controlled by Header's Export button */}
-
-          {/* Stats */}
-
-          {/* Map */}
-          <ThailandMap
-            hotspotData={grid as any}
-            stationData={hotspotStations}
-            rawPoints={filtered}
-            month={month}
-            blacklistLinks={blacklistLinks}
-          />
+          <ThailandMap hotspotData={grid as any} stationData={hotspotStations} month={month} blacklistLinks={blacklistLinks} />
         </div>
       )}
     </div>

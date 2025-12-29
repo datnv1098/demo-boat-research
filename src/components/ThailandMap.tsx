@@ -47,32 +47,74 @@ interface StationData {
 interface ThailandMapProps {
   hotspotData: HotspotCell[][] // Keep for backward compatibility if needed
   stationData?: StationData[] // Used for markers
-  rawPoints?: StationData[]   // Used for heatmap
   percentileThreshold?: number
   month: string
   blacklistLinks?: string[]
 }
 
-// Heatmap Layer Component
+// Heatmap Layer Component with dynamic radius based on zoom
 function HeatmapLayer({ points }: { points: [number, number, number][] }) {
   const map = useMap()
 
   useEffect(() => {
     if (!map || !points.length) return
 
+    // Function to calculate pixel radius for 10 nautical miles
+    // 1 nautical mile = 1852 meters
+    // 10 nautical miles = 18520 meters
+    const calculateRadius = (zoom: number): number => {
+      const NAUTICAL_MILES = 10
+      const METERS_PER_NM = 1852
+      const targetMeters = NAUTICAL_MILES * METERS_PER_NM
+
+      // Leaflet's meters per pixel at zoom level (at equator)
+      // Formula: 156543.03392 * Math.cos(latLng.lat * Math.PI / 180) / Math.pow(2, zoom)
+      // Using center of Thailand (around 13 degrees latitude)
+      const centerLat = 10.0
+      const metersPerPixel = 156543.03392 * Math.cos(centerLat * Math.PI / 180) / Math.pow(2, zoom)
+
+      const radiusInPixels = targetMeters / metersPerPixel
+
+      // Clamp radius between reasonable bounds
+      return Math.max(10, Math.min(radiusInPixels, 200))
+    }
+
+    const currentZoom = map.getZoom()
+    const initialRadius = calculateRadius(currentZoom)
+
+    console.log(`Zoom: ${currentZoom}, Radius: ${initialRadius}px for 10 nautical miles`)
+
     // @ts-ignore - leaflet.heat doesn't have official types in some setups
     const heatLayer = L.heatLayer(points, {
-      radius: 60,
-      blur: 45, // Increased blur for seamless distribution
-      max: 10,
+      radius: initialRadius,
+      blur: 30,
+      minOpacity: 0.35,
       gradient: {
-        0.05: '#00ff00', // Green (Sparse)
-        0.15: '#ffff00', // Yellow (Medium)
-        0.3: '#ff0000'   // Red (High density)
+        0.0: '#2c3e9f', // xanh đậm
+        0.2: '#1fa2ff', // xanh biển
+        0.4: '#2ecc71', // xanh lục
+        0.6: '#f1c40f', // vàng
+        0.8: '#e67e22', // cam
+        1.0: '#e74c3c'  // đỏ
       }
     }).addTo(map)
 
+    // Update radius when zoom changes
+    const handleZoomEnd = () => {
+      const newZoom = map.getZoom()
+      const newRadius = calculateRadius(newZoom)
+      console.log(`Zoom changed to: ${newZoom}, New radius: ${newRadius}px`)
+
+      // @ts-ignore
+      heatLayer.setOptions({ radius: newRadius })
+      // @ts-ignore
+      heatLayer.redraw()
+    }
+
+    map.on('zoomend', handleZoomEnd)
+
     return () => {
+      map.off('zoomend', handleZoomEnd)
       map.removeLayer(heatLayer)
     }
   }, [map, points])
@@ -80,7 +122,7 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
   return null
 }
 
-export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], blacklistLinks = [] }: ThailandMapProps) {
+export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = [] }: ThailandMapProps) {
   const { t } = useI18n()
   // Keep parameter used to satisfy TS noUnusedParameters when overlay removed
   void hotspotData
@@ -89,18 +131,15 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
   const [showGrid, setShowGrid] = useState(false)
   const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('carto_voyager')
 
-  // Points are derived from selected hotspot stations (not independent grid)
+  // Points are derived from selected hotspot stations
   const visibleStations = stationData.filter((s) => !blacklistLinks.includes(s.link))
 
-  // Use rawPoints for heatmap if available, otherwise fallback to grid
-  const pointsForHeatmap = rawPoints.length > 0 ? rawPoints : hotspotData.flat()
-
-  // @ts-ignore
-  const heatmapPoints: [number, number, number][] = pointsForHeatmap
+  // User requirement: Colored points are those in the marked list
+  const heatmapPoints: [number, number, number][] = visibleStations
     .filter((p: any) => (p.cpue || 0) > 0)
     .map((p: any) => [
-      p.lat || p.coordinates?.lat,
-      p.lon || p.coordinates?.lon,
+      p.lat,
+      p.lon,
       p.cpue,
     ] as [number, number, number])
 
@@ -169,7 +208,9 @@ export function ThailandMap({ hotspotData, stationData = [], rawPoints = [], bla
       >
         <MapContainer
           center={[9.5, 100.5]}
-          zoom={6.5}
+          zoom={8.5}
+          minZoom={3}
+          maxZoom={9}
           style={{ height: '100%', width: '100%' }}
           bounds={marineBounds}
           maxBounds={marineBounds}
