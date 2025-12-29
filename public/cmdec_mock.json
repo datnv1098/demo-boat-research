@@ -19252,6 +19252,86 @@
       "total_weight": 226.0325509689883,
       "btscodename": "SPP",
       "name": "Updated Density"
+    },
+    {
+      "Link": "em202512101",
+      "total_weight": 45.5,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512102",
+      "total_weight": 52.1,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512103",
+      "total_weight": 61.2,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512104",
+      "total_weight": 38.9,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512105",
+      "total_weight": 44.4,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512106",
+      "total_weight": 55.5,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512107",
+      "total_weight": 66.6,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512108",
+      "total_weight": 77.7,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512109",
+      "total_weight": 88.8,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512110",
+      "total_weight": 99.9,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512111",
+      "total_weight": 110.0,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512112",
+      "total_weight": 120.0,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512113",
+      "total_weight": 130.0,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512114",
+      "total_weight": 140.0,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512115",
+      "total_weight": 150.0,
+      "btscodename": "ALL"
+    },
+    {
+      "Link": "em202512116",
+      "total_weight": 160.0,
+      "btscodename": "ALL"
     }
   ],
   "Water_QL": [
