@@ -11,23 +11,32 @@ interface CPUEVisualDashboardProps {
 }
 
 export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
-    // Main CPUE Bar Chart Data
-    const barChartSeries = useMemo(() => {
-        const mockValues = [1.2, 1.8, 2.5, 3.8, 4.2, 5.5, 6.8, 7.5]
-
-        // In real app, we would calculate this from 'data' prop
-        return [
-            {
-                name: 'CPUE (kg/hr)',
-                data: data.length > 0 ? Array.from({ length: 8 }, (_, i) => {
-                    const val = data.slice(i * 10, (i + 1) * 10).reduce((acc, curr) => acc + curr.cpue, 0) / 10
-                    return val || mockValues[i]
-                }) : mockValues
-            }
-        ]
+    // Group data by quarter for bar chart
+    const barChartData = useMemo(() => {
+        if (data.length === 0) return { categories: [] as string[], values: [] as number[] }
+        const qMap = new Map<string, number[]>()
+        for (const d of data) {
+            const mk = d.monthKey || ''
+            if (!mk || mk === 'N/A') continue
+            const [year, month] = mk.split('-')
+            const q = Math.ceil(Number(month) / 3)
+            const sortKey = `${year}-${q}`
+            if (!qMap.has(sortKey)) qMap.set(sortKey, [])
+            qMap.get(sortKey)!.push(Number(d.total_weight) || 0)
+        }
+        const sorted = Array.from(qMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))
+        return {
+            categories: sorted.map(([k]) => { const [y, q] = k.split('-'); return `Q${q}/${y.slice(2)}` }),
+            values: sorted.map(([, vals]) => Number((vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2))),
+        }
     }, [data])
 
-    const barChartOptions: ApexOptions = {
+    const barChartSeries = useMemo(() => [{
+        name: 'Avg Weight (kg)',
+        data: barChartData.values,
+    }], [barChartData])
+
+    const barChartOptions: ApexOptions = useMemo(() => ({
         chart: {
             type: 'bar',
             toolbar: { show: false },
@@ -41,37 +50,55 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
             }
         },
         colors: ['#0056b3'],
-        dataLabels: {
-            enabled: false
-        },
+        dataLabels: { enabled: false },
         xaxis: {
-            categories: ['Q1', 'Q2', 'Q3', 'Q4', 'Q1-25', 'Q2-25', 'Q3-25', 'Q4-25'],
+            categories: barChartData.categories,
             axisBorder: { show: false },
             axisTicks: { show: false }
         },
         yaxis: {
-            labels: {
-                formatter: (val) => val.toFixed(1)
-            }
+            labels: { formatter: (val) => val.toFixed(1) }
         },
         grid: {
             borderColor: '#f1f1f1',
             strokeDashArray: 4
         }
-    }
+    }), [barChartData])
 
-    // Box Plot Data (CPUE distribution by area or species)
+    // Box Plot Data – CPUE distribution by fishing area
     const boxPlotSeries = useMemo(() => {
-        return [
-            {
-                type: 'boxPlot',
-                data: Array.from({ length: 15 }, (_, i) => ({
-                    x: `Area ${i + 1}`,
-                    y: Array.from({ length: 5 }, () => 30 + Math.random() * 50).sort((a, b) => a - b)
-                }))
-            }
-        ]
-    }, [])
+        const groups = new Map<string, number[]>()
+        for (const d of data) {
+            const fa = d.fishingArea || d.zone || 'N/A'
+            if (!fa || fa === 'N/A') continue
+            if (!groups.has(fa)) groups.set(fa, [])
+            groups.get(fa)!.push(Number(d.total_weight) || 0)
+        }
+        function quartiles(vals: number[]): [number, number, number, number, number] | null {
+            if (vals.length < 5) return null
+            const s = [...vals].sort((a, b) => a - b)
+            const n = s.length
+            return [s[0], s[Math.floor(n * 0.25)], s[Math.floor(n * 0.5)], s[Math.floor(n * 0.75)], s[n - 1]]
+        }
+        // Shorten Thai area labels for display
+        function shortLabel(fa: string): string {
+            if (fa.includes('อันดามันใต้')) return 'อันดามันใต้'
+            if (fa.includes('อันดามันเหนือ')) return 'อันดามันเหนือ'
+            if (fa.includes('ตอนกลาง')) return 'อ่าวไทยกลาง'
+            if (fa.includes('ตอนล่าง')) return 'อ่าวไทยล่าง'
+            if (fa.includes('สมุทรปราการ')) return 'อ่าวไทยบน(สป.)'
+            if (fa.includes('ระยอง')) return 'อ่าวไทยบน(ระยอง)'
+            return fa
+        }
+        const boxData = Array.from(groups.entries())
+            .sort((a, b) => b[1].length - a[1].length)
+            .map(([label, vals]) => {
+                const q = quartiles(vals)
+                return q ? { x: shortLabel(label), y: q } : null
+            })
+            .filter((d): d is { x: string; y: [number, number, number, number, number] } => d !== null)
+        return [{ type: 'boxPlot' as const, data: boxData }]
+    }, [data])
 
     const boxPlotOptions: ApexOptions = {
         chart: {
@@ -83,7 +110,7 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
             boxPlot: {
                 colors: {
                     upper: '#0056b3',
-                    lower: '#0056b3'
+                    lower: '#5b9bd5'
                 }
             }
         },
@@ -94,10 +121,10 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
             }
         },
         yaxis: {
-            max: 80,
             labels: {
                 formatter: (val) => val.toFixed(2)
-            }
+            },
+            title: { text: 'Weight (kg)' }
         },
         tooltip: {
             y: {
@@ -105,6 +132,33 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
             }
         }
     }
+
+    // Compute real summary stats from the data
+    const summaryStats = useMemo(() => {
+        if (data.length === 0) return { meanWeight: 0, medianWeight: 0, maxWeight: 0, totalRecords: 0 }
+        const weights = data.map(d => Number(d.total_weight) || 0).sort((a, b) => a - b)
+        const n = weights.length
+        const sum = weights.reduce((a, b) => a + b, 0)
+        return {
+            meanWeight: sum / n,
+            medianWeight: weights[Math.floor(n / 2)],
+            maxWeight: weights[n - 1],
+            totalRecords: n,
+        }
+    }, [data])
+
+    // Top species by total weight
+    const topSpecies = useMemo(() => {
+        const map = new Map<string, number>()
+        for (const d of data) {
+            const sp = d.speciesCode || d.btscodename || 'N/A'
+            map.set(sp, (map.get(sp) || 0) + (Number(d.total_weight) || 0))
+        }
+        return Array.from(map.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([name, weight]) => ({ name, weight }))
+    }, [data])
 
     // Lmean Bell Curve Data
     const lmeanSeries = useMemo(() => {
@@ -197,12 +251,12 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                         />
                         <div className="flex justify-between items-end border-t border-slate-100 pt-6">
                             <div>
-                                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Mean Length</div>
-                                <div className="text-4xl font-black text-blue-900 leading-none">42.5 <span className="text-xl">cm</span></div>
+                                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Mean Weight</div>
+                                <div className="text-4xl font-black text-blue-900 leading-none">{summaryStats.meanWeight.toFixed(2)} <span className="text-xl">kg</span></div>
                             </div>
                             <div className="text-right">
-                                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Stock Status</div>
-                                <div className="text-xl font-bold text-green-600">HEALTHY</div>
+                                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Records</div>
+                                <div className="text-xl font-bold text-green-600">{summaryStats.totalRecords.toLocaleString()}</div>
                             </div>
                         </div>
                     </div>
@@ -222,11 +276,11 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                         <div className="grid grid-cols-2 gap-4 mt-6">
                             <div className="bg-slate-50 p-4 rounded-2xl text-center">
                                 <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Median</div>
-                                <div className="text-2xl font-black text-blue-900">48.2</div>
+                                <div className="text-2xl font-black text-blue-900">{summaryStats.medianWeight.toFixed(2)}</div>
                             </div>
                             <div className="bg-blue-900 p-4 rounded-2xl text-center text-white">
-                                <div className="text-[10px] text-white/60 uppercase font-black tracking-widest mb-1">Peak Value</div>
-                                <div className="text-2xl font-black">50.0</div>
+                                <div className="text-[10px] text-white/60 uppercase font-black tracking-widest mb-1">Max</div>
+                                <div className="text-2xl font-black">{summaryStats.maxWeight.toFixed(2)}</div>
                             </div>
                         </div>
                     </div>
@@ -258,37 +312,23 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                             <Target className="h-40 w-40" />
                         </div>
                         <h3 className="text-xl font-extrabold mb-6 italic flex items-center justify-between">
-                            TOP 100 STATIONS
-                            <span className="text-[10px] bg-white/20 px-2 py-1 rounded tracking-widest">LIVE</span>
+                            TOP SPECIES BY WEIGHT
+                            <span className="text-[10px] bg-white/20 px-2 py-1 rounded tracking-widest">{data.length.toLocaleString()} records</span>
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
-                            {[
-                                { id: 'ST-204', val: '8.42', trend: '+12%' },
-                                { id: 'ST-112', val: '7.95', trend: '+5%' },
-                                { id: 'ST-045', val: '7.61', trend: '-2%' },
-                                { id: 'ST-289', val: '7.44', trend: '+8%' },
-                                { id: 'ST-103', val: '7.12', trend: '+1%' },
-                                { id: 'ST-012', val: '6.98', trend: '+3%' },
-                                { id: 'ST-156', val: '6.75', trend: '+9%' },
-                                { id: 'ST-099', val: '6.42', trend: '-4%' },
-                            ].map((item, i) => (
+                            {topSpecies.map((item, i) => (
                                 <div key={i} className="flex items-center justify-between border-b border-white/10 pb-3 last:border-0 md:last:border-b">
                                     <div className="flex items-center gap-4">
                                         <span className="text-white/40 font-black italic">{i + 1}</span>
-                                        <span className="font-bold tracking-tight">{item.id}</span>
+                                        <span className="font-bold tracking-tight text-sm">{item.name.length > 20 ? item.name.slice(0, 20) + '…' : item.name}</span>
                                     </div>
                                     <div className="flex items-center gap-4">
-                                        <span className="font-mono text-lg font-black">{item.val}</span>
-                                        <span className={`text-[10px] font-black ${item.trend.startsWith('+') ? 'text-green-400' : 'text-red-400'}`}>
-                                            {item.trend}
-                                        </span>
+                                        <span className="font-mono text-lg font-black">{item.weight.toFixed(2)}</span>
+                                        <span className="text-[10px] font-black text-white/50">kg</span>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        <button className="w-full mt-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-black text-xs tracking-widest uppercase transition-all">
-                            View Full Leaderboard
-                        </button>
                     </div>
 
                 </div>
@@ -299,7 +339,7 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                 <div className="flex justify-between items-center mb-6">
                     <div>
                         <h3 className="text-2xl font-black text-blue-900 italic uppercase">Variation by Area & Zone</h3>
-                        <p className="text-slate-400 font-medium text-sm">Detailed CPUE Distribution across 15 priority research areas</p>
+                        <p className="text-slate-400 font-medium text-sm">Detailed CPUE Distribution across research fishing areas</p>
                     </div>
                     <div className="flex gap-4 items-center">
                         <div className="flex items-center gap-2">

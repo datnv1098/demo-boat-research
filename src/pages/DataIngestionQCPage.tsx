@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { ClipboardCheck } from 'lucide-react'
-import { Header, Table, Button } from '../components/common'
+import { Header, Table } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { THAILAND_BOUNDS } from '../data/thailandGeoData'
+import { loadRealData } from '../data/dataAdapter'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
 
@@ -12,15 +12,12 @@ export default function DataIngestionQCPage() {
   const [error, setError] = useState<string | null>(null)
   const { t } = useI18n()
   const [qcLogs, setQcLogs] = useState<any[]>([])
-  const [accepted, setAccepted] = useState<Record<string, boolean>>({})
 
   const statusData = useMemo(() => {
-    const counts: Record<string, number> = { ok: 0, warn: 0, accepted: 0, error: 0 }
+    const counts: Record<string, number> = { ok: 0, error: 0 }
     for (const l of qcLogs) counts[l.status] = (counts[l.status] || 0) + 1
     return [
       { type: '✅ OK', value: counts.ok },
-      { type: '⚠️ Warn', value: counts.warn },
-      { type: '☑️ Accepted', value: counts.accepted },
       { type: '❌ Error', value: counts.error },
     ]
   }, [qcLogs])
@@ -72,11 +69,11 @@ export default function DataIngestionQCPage() {
       const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       linkToMonth[link] = ym
     }
-    const map: Record<string, { ok: number; warn: number; accepted: number; error: number }> = {}
+    const map: Record<string, { ok: number; error: number }> = {}
     for (const l of qcLogs) {
       const m = linkToMonth[String(l.tripId)] || 'Unknown'
-      if (!map[m]) map[m] = { ok: 0, warn: 0, accepted: 0, error: 0 }
-      const st: 'ok' | 'warn' | 'accepted' | 'error' = l.status
+      if (!map[m]) map[m] = { ok: 0, error: 0 }
+      const st: 'ok' | 'error' = l.status
       map[m][st] = (map[m][st] || 0) + 1
     }
     const rows: { month: string; status: string; count: number }[] = []
@@ -85,8 +82,6 @@ export default function DataIngestionQCPage() {
       .forEach((m) => {
         const v = map[m]
         rows.push({ month: m, status: '✅ OK', count: v.ok })
-        rows.push({ month: m, status: '⚠️ Warn', count: v.warn })
-        rows.push({ month: m, status: '☑️ Accepted', count: v.accepted })
         rows.push({ month: m, status: '❌ Error', count: v.error })
       })
     return rows
@@ -109,7 +104,7 @@ export default function DataIngestionQCPage() {
   // Transform data for ApexCharts stacked bar chart - Monthly Status
   const monthlyStatusChartData = useMemo(() => {
     const months = Array.from(new Set(monthlyStatus.map(r => r.month))).sort()
-    const statuses = ['✅ OK', '⚠️ Warn', '☑️ Accepted', '❌ Error']
+    const statuses = ['✅ OK', '❌ Error']
     const series = statuses.map(status => ({
       name: status,
       data: months.map(month => {
@@ -121,19 +116,14 @@ export default function DataIngestionQCPage() {
   }, [monthlyStatus])
 
   useEffect(() => {
-    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
-      .then((r) => r.json())
+    loadRealData()
       .then(parseAndSet)
       .catch((e) => setError(String(e)))
   }, [])
 
   function parseAndSet(d: any) {
     setData(d)
-    // load accepted from localStorage
-    try {
-      const saved = localStorage.getItem('qcAcceptedWarnings')
-      if (saved) setAccepted(JSON.parse(saved))
-    } catch {}
+
     const lowerKeys: Record<string, any> = {}
     Object.keys(d || {}).forEach((k) => (lowerKeys[k.toLowerCase()] = d[k]))
     const hdr = Array.isArray(lowerKeys['header']) ? lowerKeys['header'] : []
@@ -147,8 +137,6 @@ export default function DataIngestionQCPage() {
 
   function validateSheets(hdr: any[], cth: any[], wql: any[], tss: any[]) {
     const logs: any[] = []
-    const sw = THAILAND_BOUNDS.southwest
-    const ne = THAILAND_BOUNDS.northeast
     // index helpers
     const linkToCatchExists = new Set<string>()
     for (const row of cth) if (row?.Link) linkToCatchExists.add(String(row.Link))
@@ -157,110 +145,78 @@ export default function DataIngestionQCPage() {
     const linkToTS = new Set<string>()
     for (const row of tss) if (row?.Link) linkToTS.add(String(row.Link))
 
+    // Count unique species per trip for "few species" check
+    const tripSpeciesCount = new Map<string, Set<string>>()
+    for (const row of cth) {
+      const link = String(row?.Link || '')
+      const sp = String(row?.btscodename || '')
+      if (link && sp) {
+        if (!tripSpeciesCount.has(link)) tripSpeciesCount.set(link, new Set())
+        tripSpeciesCount.get(link)!.add(sp)
+      }
+    }
+
+    // Compute mean totalCatch for outlier detection
+    const catches = hdr.map(h => Number(h?.totalCatch) || 0).filter(c => c > 0)
+    const meanCatch = catches.length > 0 ? catches.reduce((a, b) => a + b, 0) / catches.length : 0
+
     for (const h of hdr) {
       const tripId = String(h?.Link ?? '')
-      const latStart = Number(h?.LatStart), lonStart = Number(h?.LongStart)
-      const latEnd = Number(h?.LatEnd), lonEnd = Number(h?.LongEnd)
-      const depth = Number(h?.Depth)
-      const tow = Number(h?.Tow)
-      const issues: string[] = []
-      let status: 'ok' | 'warn' | 'error' = 'ok'
+      const originalIssues = h?.originalIssues || []
 
-      // Lat/Lon bounds (start & end)
-      const latlonValid = (lat: number, lon: number) => isFinite(lat) && isFinite(lon) && lat >= sw.lat && lat <= ne.lat && lon >= sw.lng && lon <= ne.lng
-      if (!isFinite(latStart) || !isFinite(lonStart) || !isFinite(latEnd) || !isFinite(lonEnd)) {
+      const issues: string[] = [...originalIssues]
+      let status: 'ok' | 'error' = 'ok'
+
+      // Structural: Trip must have matching Catch data
+      if (tripId && !linkToCatchExists.has(tripId)) {
         status = 'error'
-        issues.push('พิกัดไม่ถูกต้อง (Lat/Lon)')
-      } else if (!(latlonValid(latStart, lonStart) && latlonValid(latEnd, lonEnd))) {
-        status = 'warn'
-        issues.push('พิกัดอยู่นอกน่านน้ำที่กำหนด')
+        issues.push('ไม่มีข้อมูล Catch (No matching Catch rows)')
       }
 
-      // Depth
-      if (!isFinite(depth)) {
-        issues.push('ไม่มีค่าความลึก (Depth)')
-      } else {
-        if (!(depth > 0 && depth >= 7 && depth <= 53)) {
-          status = status === 'error' ? 'error' : 'warn'
-          issues.push('Depth นอกช่วง 7–53 m')
-        }
+      // Unusual tow duration (not standard 60 min)
+      const tow = Number(h?.Tow)
+      if (tow && tow < 50) {
+        issues.push('ระยะเวลาลากสั้นกว่าปกติ (Short tow duration: ' + tow + ' min)')
       }
 
-      // Tow default 60 min
-      if (isFinite(tow)) {
-        if (Math.abs(tow - 60) > 1e-6) {
-          status = status === 'error' ? 'error' : 'warn'
-          issues.push('Tow != 60 นาที')
-        }
-      } else {
-        issues.push('ไม่มีค่าเวลาลากอวน (Tow)')
+      // Unusually high catch (> 3× mean)
+      const tc = Number(h?.totalCatch) || 0
+      if (meanCatch > 0 && tc > meanCatch * 3) {
+        issues.push('ปริมาณจับสูงผิดปกติ (High catch: ' + tc.toFixed(1) + ' kg)')
       }
 
-      // Speed_est_kn (not enough datapoints) -> informational
-      if (!isFinite(Number(h?.Speed_est_kn))) {
-        issues.push('Speed_est_kn: ไม่สามารถคำนวณ (ข้อมูลไม่ครบ)')
+      // Few species recorded (< 5 unique species in catch)
+      const spCount = tripSpeciesCount.get(tripId)?.size || 0
+      if (spCount > 0 && spCount < 5) {
+        issues.push('จำนวนชนิดสัตว์น้ำน้อย (Few species: ' + spCount + ')')
       }
 
-      // Link Header↔Catch
-      if (tripId) {
-        if (!linkToCatchExists.has(tripId)) {
-          status = status === 'error' ? 'error' : 'warn'
-          issues.push('ไม่มีแถว Catch ที่เชื่อมด้วย Link เดียวกัน')
-        }
+      // Shallow depth (< 10m) - unusual for research vessel
+      const depth = Number(h?.Depth)
+      if (depth && depth < 10) {
+        issues.push('ความลึกน้อยกว่าปกติ (Shallow: ' + depth + ' m)')
       }
 
-      // freqtext (TS_Spp) presence by Link
-      if (tripId && !linkToTS.has(tripId)) issues.push('ไม่มีข้อมูล TS_Spp (freqtext) สำหรับ Link นี้')
-
-      // Environment params
-      const env = tripId ? linkToWater.get(tripId) : null
-      if (env) {
-        if (env.Temp != null && (env.Temp < 0 || env.Temp > 40)) {
-          status = status === 'error' ? 'error' : 'warn'
-          issues.push('Temp เกินช่วงปกติ')
-        }
-        if (env.DO != null && (env.DO < 0 || env.DO > 15)) {
-          status = status === 'error' ? 'error' : 'warn'
-          issues.push('DO เกินช่วงปกติ')
-        }
-        if (env.pH != null && (env.pH < 7.8 || env.pH > 8.3)) {
-          status = status === 'error' ? 'error' : 'warn'
-          issues.push('pH เกินช่วงปกติ (7.8–8.3)')
-        }
-        if (env.Salinity != null && (env.Salinity < 0 || env.Salinity > 40)) {
-          status = status === 'error' ? 'error' : 'warn'
-          issues.push('Salinity เกินช่วงปกติ')
-        }
-      } else {
-        issues.push('ไม่มีค่าพารามิเตอร์สิ่งแวดล้อม (Temp/DO/pH/Salinity)')
+      if (issues.length > 0 && status === 'ok') {
+        status = 'ok' // issues exist but they are warnings, keep status ok
       }
 
-      const acceptedWarning = accepted[tripId] === true
-      const finalStatus = acceptedWarning && status === 'warn' ? 'accepted' : status
-
-      logs.push({ tripId, status: finalStatus, rawStatus: status, issues })
+      logs.push({ tripId, status, issues: Array.from(new Set(issues)) })
     }
     return logs
   }
 
-  function onAcceptWarning(id: string) {
-    setAccepted((prev) => ({ ...prev, [id]: true }))
-    setQcLogs((prev) => prev.map((l) => (l.tripId === id && l.rawStatus === 'warn' ? { ...l, status: 'accepted' } : l)))
-    try {
-      const next = { ...accepted, [id]: true }
-      localStorage.setItem('qcAcceptedWarnings', JSON.stringify(next))
-    } catch {}
-  }
+
 
   // file upload removed
 
   function exportCsv() {
-    const header = ['Trip','Status','Issues']
+    const header = ['Trip', 'Status', 'Issues']
     const lines = [header.join(',')]
     for (const l of qcLogs) {
-      const status = l.status
+      const statusLabel = l.status === 'ok' ? 'OK' : 'Error'
       const issues = (l.issues || []).join(' | ').replace(/\n|\r/g, ' ')
-      const row = [l.tripId, status, '"' + issues.replace(/"/g, '""') + '"']
+      const row = [l.tripId, statusLabel, '"' + issues.replace(/"/g, '""') + '"']
       lines.push(row.join(','))
     }
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
@@ -276,7 +232,7 @@ export default function DataIngestionQCPage() {
     const win = window.open('', '_blank', 'width=1024,height=768')
     if (!win) return
     const rowsHtml = qcLogs.slice(0, 500).map((l) => {
-      const status = l.status === 'ok' ? '✅' : l.status === 'warn' ? '⚠️' : l.status === 'accepted' ? '☑️' : '❌'
+      const status = l.status === 'ok' ? '✅' : '❌'
       const issues = (l.issues || []).map((i: string) => `<li>${i}</li>`).join('')
       return `<tr><td style="padding:6px;border:1px solid #ddd;">${l.tripId}</td><td style="padding:6px;border:1px solid #ddd;">${status}</td><td style="padding:6px;border:1px solid #ddd;"><ul>${issues}</ul></td></tr>`
     }).join('')
@@ -323,7 +279,7 @@ export default function DataIngestionQCPage() {
                       fontFamily: 'inherit',
                     },
                     labels: statusData.map(d => d.type),
-                    colors: ['#22c55e', '#f59e0b', '#3b82f6', '#ef4444'],
+                    colors: ['#22c55e', '#ef4444'],
                     legend: {
                       position: 'bottom',
                       fontSize: '12px',
@@ -523,7 +479,7 @@ export default function DataIngestionQCPage() {
                       formatter: (val: number) => Math.round(val).toString()
                     }
                   },
-                  colors: ['#22c55e', '#f59e0b', '#3b82f6', '#ef4444'],
+                  colors: ['#22c55e', '#ef4444'],
                   grid: {
                     strokeDashArray: 3,
                     borderColor: 'rgba(0, 0, 0, 0.06)',
@@ -558,19 +514,27 @@ export default function DataIngestionQCPage() {
 
           <div className="text-sm font-medium mt-4">บันทึกการตรวจสอบคุณภาพ (QC Logs)</div>
           <div>
-          <Table
-            columns={["Trip", "สถานะ", "ปัญหา/หมายเหตุ", "การทำงาน"]}
-            maxHeight={'calc(100vh - 600px)'}
-            minHeight="420px"
-            rows={qcLogs.slice(0, 50).map((l) => [
-              l.tripId,
-              l.status === 'ok' ? '✅ ผ่าน' : l.status === 'warn' ? '⚠️ คำเตือน' : l.status === 'accepted' ? '☑️ ยอมรับเตือน' : '❌ ผิดพลาด',
-              <ul className="list-disc pl-4">
-                {l.issues.map((msg: string, idx: number) => (<li key={idx}>{msg}</li>))}
-              </ul>,
-              l.status === 'warn' ? <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={() => onAcceptWarning(l.tripId)}>Accept Warning</Button> : ''
-            ])}
-          />
+            <Table
+              columns={["Trip", "สถานะ", "ปัญหา/หมายเหตุ"]}
+              maxHeight={'calc(100vh - 600px)'}
+              minHeight="420px"
+              rows={[...qcLogs]
+                .sort((a, b) => (b.issues?.length || 0) - (a.issues?.length || 0))
+                .slice(0, 50)
+                .map((l) => [
+                  l.tripId,
+                  l.status === 'ok'
+                    ? (l.issues.length > 0 ? '⚠️ มีหมายเหตุ' : '✅ ผ่าน')
+                    : '❌ ผิดพลาด',
+                  l.issues.length > 0 ? (
+                    <ul className="list-disc pl-4">
+                      {l.issues.map((msg: string, idx: number) => (<li key={idx}>{msg}</li>))}
+                    </ul>
+                  ) : (
+                    <span className="text-muted-foreground">ไม่พบปัญหา</span>
+                  ),
+                ])}
+            />
           </div>
         </div>
       )}

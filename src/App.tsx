@@ -17,7 +17,7 @@ function TopNav() {
       <div className="flex items-center gap-2">
         <Layers className="h-5 w-5" />
         <span className="font-semibold">ระบบวิเคราะห์ประมงไทย</span>
-        <Badge className="ml-2 bg-blue-100 text-blue-700">เดสก์ท็อป • ข้อมูลจำลอง</Badge>
+        <Badge className="ml-2 bg-blue-100 text-blue-700">เดสก์ท็อป • ข้อมูลจริง</Badge>
       </div>
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <div className="flex items-center gap-1">

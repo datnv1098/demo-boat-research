@@ -3,6 +3,7 @@ import { Ruler } from 'lucide-react'
 import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button } from '../components/common'
 import { Table } from '../components/common'
 import { useI18n } from '../lib/i18n'
+import { loadRealData } from '../data/dataAdapter'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
 import { CPUEVisualDashboard } from '../components/CPUEVisualDashboard'
@@ -17,8 +18,7 @@ export default function LengthBiologyPage() {
   const [zone, setZone] = useState<string>('all')
 
   useEffect(() => {
-    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
-      .then((r) => r.json())
+    loadRealData()
       .then(setData)
       .catch((e) => setError(String(e)))
   }, [])
@@ -61,6 +61,8 @@ export default function LengthBiologyPage() {
       const monthKey = d && !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'N/A'
       map.set(String(h?.Link), {
         zone: h?.Zone || 'N/A',
+        area: h?.Area || 'N/A',
+        fishingArea: h?.fishingArea || '',
         monthLabel: toMonthLabel(String(h?.Date)),
         monthKey,
       })
@@ -81,8 +83,11 @@ export default function LengthBiologyPage() {
         speciesCode,
         freqPairs: ft,
         zone: hdr.zone,
+        area: hdr.area,
+        fishingArea: hdr.fishingArea || c.fishingArea || '',
         monthLabel: hdr.monthLabel,
         monthKey: hdr.monthKey,
+        total_weight: c.total_weight || 0,
       })
     }
     return list

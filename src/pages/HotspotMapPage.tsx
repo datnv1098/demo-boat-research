@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Map as MapIcon } from 'lucide-react'
 import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
+import { loadRealData } from '../data/dataAdapter'
 import { ThailandMap } from '../components/ThailandMap'
 
 
@@ -22,25 +23,6 @@ interface StationData {
   speciesSet: string[]
 }
 
-const EXTRA_MONITORING_POINTS = [
-  { "Link": "em202512101", "Date": "2025-12-29", "LatStart": 13.154082, "LongStart": 100.157953, "LatEnd": 13.16, "LongEnd": 100.16, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M01", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512102", "Date": "2025-12-29", "LatStart": 12.801869, "LongStart": 100.101477, "LatEnd": 12.81, "LongEnd": 100.11, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M02", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512103", "Date": "2025-12-29", "LatStart": 12.094954, "LongStart": 100.150468, "LatEnd": 12.10, "LongEnd": 100.16, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M03", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512104", "Date": "2025-12-29", "LatStart": 11.675271, "LongStart": 99.922104, "LatEnd": 11.68, "LongEnd": 99.93, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M04", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512105", "Date": "2025-12-29", "LatStart": 11.096489, "LongStart": 99.721590, "LatEnd": 11.10, "LongEnd": 99.73, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M05", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512106", "Date": "2025-12-29", "LatStart": 10.554890, "LongStart": 99.504366, "LatEnd": 10.56, "LongEnd": 99.51, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M06", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512107", "Date": "2025-12-29", "LatStart": 9.908103, "LongStart": 99.537785, "LatEnd": 9.91, "LongEnd": 99.54, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M07", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512108", "Date": "2025-12-29", "LatStart": 8.998063, "LongStart": 100.396658, "LatEnd": 9.00, "LongEnd": 100.40, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M08", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512109", "Date": "2025-12-29", "LatStart": 12.882982, "LongStart": 100.660191, "LatEnd": 12.89, "LongEnd": 100.67, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M09", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512110", "Date": "2025-12-29", "LatStart": 12.359595, "LongStart": 101.007240, "LatEnd": 12.36, "LongEnd": 101.01, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M10", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512111", "Date": "2025-12-29", "LatStart": 12.304116, "LongStart": 101.657169, "LatEnd": 12.31, "LongEnd": 101.66, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M11", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512112", "Date": "2025-12-29", "LatStart": 11.903085, "LongStart": 102.111488, "LatEnd": 11.91, "LongEnd": 102.12, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M12", "Area": "A1", "Zone": "Gulf", "Office": "Office-1", "Course": "N" },
-  { "Link": "em202512113", "Date": "2025-12-29", "LatStart": 9.423632, "LongStart": 97.775702, "LatEnd": 9.43, "LongEnd": 97.78, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M13", "Area": "B1", "Zone": "Andaman", "Office": "Office-2", "Course": "W" },
-  { "Link": "em202512114", "Date": "2025-12-29", "LatStart": 8.195391, "LongStart": 97.661767, "LatEnd": 8.20, "LongEnd": 97.67, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M14", "Area": "B1", "Zone": "Andaman", "Office": "Office-2", "Course": "W" },
-  { "Link": "em202512115", "Date": "2025-12-29", "LatStart": 7.312779, "LongStart": 98.252158, "LatEnd": 7.32, "LongEnd": 98.26, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M15", "Area": "B1", "Zone": "Andaman", "Office": "Office-2", "Course": "W" },
-  { "Link": "em202512116", "Date": "2025-12-29", "LatStart": 6.767960, "LongStart": 99.091135, "LatEnd": 6.77, "LongEnd": 99.10, "Depth": 15.0, "Tow": 60, "Distance_nm": 1.5, "Speed_est_kn": 1.5, "Station": "M16", "Area": "B1", "Zone": "Andaman", "Office": "Office-2", "Course": "W" }
-]
-
 export default function HotspotMapPage() {
   const [data, setData] = useState<any | null>(null)
   const [, setError] = useState<string | null>(null)
@@ -54,8 +36,7 @@ export default function HotspotMapPage() {
   const [heatmapType] = useState<'cpue' | 'temp'>('cpue')
 
   useEffect(() => {
-    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
-      .then((r) => r.json())
+    loadRealData()
       .then(setData)
       .catch((e) => setError(String(e)))
   }, [])
@@ -131,29 +112,25 @@ export default function HotspotMapPage() {
       const hours = isFinite(towMin) ? towMin / 60 : NaN
       const totalCatch = linkToCatchWeight[link] || 0
       const cpue = isFinite(hours) && hours > 0 ? totalCatch / hours : NaN
-      if (!isFinite(cpue)) continue
-
+      
       const latStart = Number(h?.LatStart)
       const lonStart = Number(h?.LongStart)
       const lat = isFinite(latStart) ? latStart : NaN
       const lon = isFinite(lonStart) ? lonStart : NaN
 
       if (!isFinite(lat) || !isFinite(lon)) continue
-    }
 
-    // 2. Add extra monitoring points from our new variable
-    for (const p of EXTRA_MONITORING_POINTS) {
       list.push({
-        link: p.Link,
-        lat: p.LatStart,
-        lon: p.LongStart,
-        cpue: 250, // Set high CPUE to ensure it's a hotspot
-        zone: p.Zone,
-        depth: p.Depth,
-        course: p.Course,
-        monthLabel: toMonthLabel(p.Date),
-        date: new Date(p.Date),
-        speciesSet: ['ALL'],
+        link,
+        lat,
+        lon,
+        cpue: isFinite(cpue) ? cpue : 0,
+        zone: String(h?.Zone || 'Gulf'),
+        depth: Number(h?.Depth) || 0,
+        course: String(h?.Course || ''),
+        monthLabel: toMonthLabel(h?.Date),
+        date: h?.Date ? new Date(h?.Date) : null,
+        speciesSet: Array.from(linkSpeciesSet.get(link) || []),
       })
     }
 

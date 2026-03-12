@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Header, Label, Table, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useI18n } from '../lib/i18n';
+import { loadRealData } from '../data/dataAdapter';
 import { GaugeChart } from '../components/GaugeChart';
 
 export default function WaterQualityPage() {
@@ -12,8 +13,7 @@ export default function WaterQualityPage() {
   const [zone, setZone] = useState('all');
 
   useEffect(() => {
-    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
-      .then(r => r.json())
+    loadRealData()
       .then(setData)
       .catch((e) => setError(String(e)));
   }, []);
@@ -122,31 +122,7 @@ export default function WaterQualityPage() {
 
   // Top 10 highest values for each parameter
   const top10Data = useMemo(() => {
-    // Add more mock data if needed to ensure we have enough records
     const allData = [...waterRows];
-    
-    // If we don't have enough data, generate mock data
-    while (allData.length < 50) {
-      const baseIndex = allData.length % waterRows.length;
-      const baseRow = waterRows[baseIndex] || waterRows[0];
-      if (!baseRow) break;
-      
-      const monthNum = (baseIndex % 12) + 1;
-      const year = 2024 + Math.floor(baseIndex / 12);
-      const station = (baseIndex % 9) + 1;
-      
-      allData.push({
-        Month: `${String(monthNum).padStart(2, '0')}/${year}`,
-        MonthNum: monthNum,
-        Year: year,
-        Zone: station <= 4 ? 'Gulf' : 'Andaman',
-        Temp: 20 + Math.random() * 15,
-        DO: 3 + Math.random() * 5,
-        pH: 6.5 + Math.random() * 2,
-        Salinity: 25 + Math.random() * 15,
-        Station: `ST-${station}`,
-      });
-    }
     
     const sortAndTake = (data: any[], key: string) => {
       return [...data]

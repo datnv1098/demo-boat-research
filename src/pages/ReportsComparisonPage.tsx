@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { BarChart2 } from 'lucide-react'
 import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
+import { loadRealData } from '../data/dataAdapter'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
 import { GaugeChart } from '../components/GaugeChart'
@@ -16,8 +17,7 @@ export default function ReportsComparisonPage() {
   const [metric, setMetric] = useState<'cpue' | 'depth' | 'temp' | 'sal' | 'do' | 'ph' | 'lmean' | 'lfi'>('cpue')
 
   useEffect(() => {
-    fetch(new URL('../../cmdec_mock.json', import.meta.url).href)
-      .then((r) => r.json())
+    loadRealData()
       .then(setData)
       .catch((e) => setError(String(e)))
   }, [])
