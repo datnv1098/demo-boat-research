@@ -26,7 +26,8 @@
       "@/*": ["./src/*"],
       "components/*": ["./src/components/*"]
     },
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "types": ["vite/client"]
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

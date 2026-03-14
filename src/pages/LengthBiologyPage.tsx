@@ -233,7 +233,7 @@ export default function LengthBiologyPage() {
       }))
     }
 
-    const map = new Map<string, { length: number; count: number }>()
+    const map = new Map<number, { length: number; count: number }>()
     for (const r of filtered) {
       for (const p of pairsForRecord(r)) {
         const key = p.length
