@@ -31,7 +31,7 @@ function TopNav() {
 }
 
 const NAV = [
-  { id: 'reports-compare', labelKey: 'nav.dashboard', icon: <BarChart2 className="h-4 w-4" />, comp: <ReportsComparisonPage /> },
+  { id: 'reports-compare', labelKey: 'nav.overview', icon: <BarChart2 className="h-4 w-4" />, comp: <ReportsComparisonPage /> },
   { id: 'ingestion-qc', labelKey: 'nav.ingestionQc', icon: <ClipboardCheck className="h-4 w-4" />, comp: <DataIngestionQCPage /> },
   { id: 'cpue', labelKey: 'nav.cpue', icon: <Activity className="h-4 w-4" />, comp: <CPUEPage /> },
   { id: 'length-bio', labelKey: 'nav.lengthBio', icon: <Ruler className="h-4 w-4" />, comp: <LengthBiologyPage /> },

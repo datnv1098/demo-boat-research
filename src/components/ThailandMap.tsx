@@ -78,9 +78,9 @@ function normalizeCpue(cpue: number, p10: number, p90: number): number {
   const low = Math.max(0, p10)
   const high = Math.max(low + 1e-6, p90)
   const denom = Math.log1p(high) - Math.log1p(low)
-  if (denom <= 0) return 0.25
+  if (denom <= 0) return 0.2
   const n = (Math.log1p(Math.max(0, cpue)) - Math.log1p(low)) / denom
-  return clamp(0.12 + clamp(n, 0, 1) * 0.88, 0.1, 1)
+  return clamp(0.08 + clamp(n, 0, 1) * 0.68, 0.08, 0.7)
 }
 
 function makeSurfaceHeatPoints(stations: StationData[]): [number, number, number][] {
@@ -162,35 +162,35 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
   useEffect(() => {
     if (!map || !points.length) return
 
-    // Keep kernel close to nautical operational scale but slightly wider to form continuous coastal bands.
+    // Keep kernel compact when zooming in, but taper it more gradually across zoom levels.
     const calculateRadius = (zoom: number): number => {
-      const NAUTICAL_MILES = 12
-      const METERS_PER_NM = 1852
-      const targetMeters = NAUTICAL_MILES * METERS_PER_NM
+      const BASE_RADIUS = 15
+      const ZOOM_ANCHOR = 7
+      const radius = BASE_RADIUS * Math.pow(1, zoom - ZOOM_ANCHOR)
+      return Math.max(6, Math.min(radius, 20))
+    }
 
-      const centerLat = 10.0
-      const metersPerPixel = 156543.03392 * Math.cos(centerLat * Math.PI / 180) / Math.pow(2, zoom)
-
-      const radiusInPixels = targetMeters / metersPerPixel
-      return Math.max(16, Math.min(radiusInPixels, 96))
+    const calculateBlur = (radius: number): number => {
+      return Math.max(10, Math.min(Math.round(radius * 1.85), 28))
     }
 
     const currentZoom = map.getZoom()
     const initialRadius = calculateRadius(currentZoom)
+    const initialBlur = calculateBlur(initialRadius)
 
     // @ts-ignore - leaflet.heat doesn't have official types in some setups
     const heatLayer = L.heatLayer(points, {
       radius: initialRadius,
-      blur: 38,
-      minOpacity: 0.18,
+      blur: initialBlur,
+      minOpacity: 0.19,
       gradient: {
-        0.05: '#e8f7ff',
-        0.2: '#cbeeff',
-        0.35: '#9fddff',
-        0.5: '#77e2d0',
-        0.68: '#ffe68d',
-        0.84: '#ffbd7a',
-        1.0: '#ff7b6b',
+        0.08: '#d8f8ff',
+        0.26: '#afe8f4',
+        0.44: '#79cedf',
+        0.60: '#f4df87',
+        0.78: '#f1b075',
+        0.92: '#e88669',
+        1.00: '#de705b',
       }
     }).addTo(map)
 
@@ -198,9 +198,10 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
     const handleZoomEnd = () => {
       const newZoom = map.getZoom()
       const newRadius = calculateRadius(newZoom)
+      const newBlur = calculateBlur(newRadius)
 
       // @ts-ignore
-      heatLayer.setOptions({ radius: newRadius })
+      heatLayer.setOptions({ radius: newRadius, blur: newBlur })
       // @ts-ignore
       heatLayer.redraw()
     }
@@ -437,7 +438,7 @@ export function ThailandMap({
           <span>{t('map.legend.low')}</span>
           <div
             className="w-32 h-3 rounded"
-            style={{ background: 'linear-gradient(90deg, #e8f7ff 0%, #9fddff 30%, #77e2d0 50%, #ffe68d 72%, #ff7b6b 100%)' }}
+            style={{ background: 'linear-gradient(90deg, #d8f8ff 0%, #afe8f4 26%, #79cedf 44%, #f4df87 60%, #f1b075 78%, #e88669 92%, #de705b 100%)' }}
           ></div>
           <span>{t('map.legend.high')}</span>
         </div>
@@ -467,14 +468,14 @@ function GridOverlay({
     for (const cell of gridCells) {
       const intensity = normalizeCpue(cell.cpue, p10, p90)
       const fillColor = intensity >= 0.82
-        ? '#ff7b6b'
+        ? '#ee9e86'
         : intensity >= 0.68
-          ? '#ffbd7a'
+          ? '#f7bf9a'
           : intensity >= 0.5
-            ? '#ffe68d'
+            ? '#f6efb8'
             : intensity >= 0.32
-              ? '#77e2d0'
-              : '#9fddff'
+              ? '#a8e2ea'
+              : '#d6f5fb'
 
       const polygon = L.polygon(
         [
@@ -485,10 +486,10 @@ function GridOverlay({
         ],
         {
           fillColor,
-          fillOpacity: 0.12 + intensity * 0.3,
-          color: borderColor,
-          weight: 0.8 + intensity * 0.8,
-          opacity: borderOpacity,
+          fillOpacity: 0.05 + intensity * 0.14,
+          color: '#8fcdd6',
+          weight: 0.5 + intensity * 0.45,
+          opacity: 0.18,
         }
       )
 
