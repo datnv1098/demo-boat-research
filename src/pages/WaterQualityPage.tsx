@@ -3,25 +3,7 @@ import { Header, Label, Table, Select, SelectContent, SelectItem, SelectTrigger,
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useI18n } from '../lib/i18n';
 import { GaugeChart } from '../components/GaugeChart';
-
-const API_BASE = 'http://localhost:3000';
-
-async function fetchAllPages(path: string, limit = 1000): Promise<any[]> {
-  const rows: any[] = [];
-  let page = 1;
-  while (true) {
-    const sep = path.includes('?') ? '&' : '?';
-    const res = await fetch(`${API_BASE}${path}${sep}page=${page}&limit=${limit}`);
-    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
-    const json = await res.json();
-    const data = Array.isArray(json.data) ? json.data : [];
-    rows.push(...data);
-    if (data.length < limit) break;
-    if (json.total != null && rows.length >= Number(json.total)) break;
-    page += 1;
-  }
-  return rows;
-}
+import { fetchApiRows } from '../lib/mockApi';
 
 function toZoneLabel(regionCode: string): string {
   const code = String(regionCode || '').toUpperCase().trim();
@@ -77,13 +59,7 @@ export default function WaterQualityPage() {
     async function loadFromApi() {
       setError(null);
       try {
-        const healthRes = await fetch(`${API_BASE}/health`);
-        const health = await healthRes.json();
-        if (!healthRes.ok || health.db !== 'connected') {
-          throw new Error('Backend/Database is not ready');
-        }
-
-        const envRows = await fetchAllPages('/api/environment/daily', 1000);
+        const envRows = await fetchApiRows('/api/environment/daily', 1000);
         const normalized: WaterRow[] = envRows.map((r: any) => {
           const { monthStr, monthNum, year } = parseMonthFromDate(String(r.date ?? ''));
           return {

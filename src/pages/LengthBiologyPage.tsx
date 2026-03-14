@@ -6,25 +6,7 @@ import { useI18n } from '../lib/i18n'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
 import { CPUEVisualDashboard } from '../components/CPUEVisualDashboard'
-
-const API_BASE = 'http://localhost:3000'
-
-async function fetchAllPages(path: string, limit = 500): Promise<any[]> {
-  const rows: any[] = []
-  let page = 1
-  while (true) {
-    const sep = path.includes('?') ? '&' : '?'
-    const res = await fetch(`${API_BASE}${path}${sep}page=${page}&limit=${limit}`)
-    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
-    const json = await res.json()
-    const data = Array.isArray(json.data) ? json.data : []
-    rows.push(...data)
-    if (data.length < limit) break
-    if (json.total != null && rows.length >= Number(json.total)) break
-    page += 1
-  }
-  return rows
-}
+import { fetchApiRows } from '../lib/mockApi'
 
 function normalizeZone(mainArea: string): string {
   const v = String(mainArea || '').toUpperCase().trim()
@@ -76,16 +58,10 @@ export default function LengthBiologyPage() {
       setLoading(true)
       setError(null)
       try {
-        const healthRes = await fetch(`${API_BASE}/health`)
-        const health = await healthRes.json()
-        if (!healthRes.ok || health.db !== 'connected') {
-          throw new Error('Backend/Database is not ready')
-        }
-
         const [effort, catchData, tsSpp] = await Promise.all([
-          fetchAllPages('/api/tables/effort2'),
-          fetchAllPages('/api/tables/catch2'),
-          fetchAllPages('/api/tables/ts_spp'),
+          fetchApiRows('/api/tables/effort2'),
+          fetchApiRows('/api/tables/catch2'),
+          fetchApiRows('/api/tables/ts_spp'),
         ])
 
         if (!cancelled) {

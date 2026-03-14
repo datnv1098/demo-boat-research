@@ -11,20 +11,20 @@ import WaterQualityPage from './pages/WaterQualityPage'
 import { I18nProvider, useI18n } from './lib/i18n'
 
 function TopNav() {
-  const { lang, setLang } = useI18n()
+  const { lang, setLang, t } = useI18n()
   return (
     <div className="h-14 border-b bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/60 fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4">
       <div className="flex items-center gap-2">
         <Layers className="h-5 w-5" />
-        <span className="font-semibold">ระบบวิเคราะห์ประมงไทย</span>
-        <Badge className="ml-2 bg-blue-100 text-blue-700">เดสก์ท็อป • ข้อมูลจริง</Badge>
+        <span className="font-semibold">{t('app.topnav.title')}</span>
+        <Badge className="ml-2 bg-blue-100 text-blue-700">{t('app.topnav.badge')}</Badge>
       </div>
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <div className="flex items-center gap-1">
           <button className={`px-2 py-1 rounded ${lang==='th'?'bg-primary/10 text-primary':'hover:bg-muted'}`} onClick={() => setLang('th')}>TH</button>
           <button className={`px-2 py-1 rounded ${lang==='en'?'bg-primary/10 text-primary':'hover:bg-muted'}`} onClick={() => setLang('en')}>EN</button>
         </div>
-        <span>v1.0 • ต.ค. 2568</span>
+        <span>{t('app.topnav.version')}</span>
       </div>
     </div>
   )
@@ -50,7 +50,7 @@ function AppInner() {
         {/* Fixed Sidebar - Completely Fixed */}
         <aside className="w-[260px] flex-shrink-0 fixed left-0 top-14 h-[calc(100vh-56px)] p-6 pr-3 z-30">
           <div className="rounded-2xl border bg-background/60 backdrop-blur p-3 h-full overflow-hidden flex flex-col">
-            <div className="text-xs uppercase text-muted-foreground px-2 mb-2">ฟีเจอร์</div>
+            <div className="text-xs uppercase text-muted-foreground px-2 mb-2">{t('app.sidebar.features')}</div>
             <nav className="space-y-1 flex-1 overflow-hidden">
               {NAV.map((item) => (
                 <button
@@ -65,7 +65,7 @@ function AppInner() {
                 </button>
               ))}
             </nav>
-            <div className="mt-4 border-t pt-3 text-xs text-muted-foreground flex-shrink-0">โอเพ่นซอร์สเท่านั้น • อัปโหลดเป็นแบทช์</div>
+            <div className="mt-4 border-t pt-3 text-xs text-muted-foreground flex-shrink-0">{t('app.sidebar.footer')}</div>
           </div>
         </aside>
 

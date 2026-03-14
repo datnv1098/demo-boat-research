@@ -4,26 +4,7 @@ import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger,
 import { useI18n } from '../lib/i18n'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
-
-// --- API helpers ---
-const API_BASE = 'http://localhost:3000'
-
-async function fetchAllPages(path: string, maxLimit = 500): Promise<any[]> {
-  const rows: any[] = []
-  let page = 1
-  while (true) {
-    const sep = path.includes('?') ? '&' : '?'
-    const res = await fetch(`${API_BASE}${path}${sep}page=${page}&limit=${maxLimit}`)
-    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
-    const json = await res.json()
-    const data: any[] = json.data ?? []
-    rows.push(...data)
-    if (data.length < maxLimit) break
-    if (json.total != null && rows.length >= json.total) break
-    page++
-  }
-  return rows
-}
+import { fetchApiRows, getApiBase, isBackendReady } from '../lib/mockApi'
 
 // --- Normalize main_area to ADM / GOT ---
 function normalizeRegion(mainArea: string): 'ADM' | 'GOT' | null {
@@ -232,12 +213,15 @@ export default function DataIngestionQCPage() {
     setAcceptError(null)
     const remarkText = `Accepted by reviewer on ${new Date().toISOString().slice(0, 10)}`
     try {
-      const res = await fetch(`${API_BASE}/api/tables/effort2/${log.rvId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ remark: remarkText }),
-      })
-      if (!res.ok) throw new Error(`PUT /effort2/${log.rvId} failed: ${res.status}`)
+      const backendReady = await isBackendReady()
+      if (backendReady) {
+        const res = await fetch(`${getApiBase()}/api/tables/effort2/${log.rvId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ remark: remarkText }),
+        })
+        if (!res.ok) throw new Error(`PUT /effort2/${log.rvId} failed: ${res.status}`)
+      }
       setQcLogs((prev: QcLog[]) =>
         prev.map((l: QcLog) =>
           l.sampleId === log.sampleId
@@ -419,17 +403,12 @@ export default function DataIngestionQCPage() {
       setLoading(true)
       setError(null)
       try {
-        // Health check before loading
-        const healthRes = await fetch(`${API_BASE}/health`)
-        const health = await healthRes.json()
-        if (health.db !== 'connected') throw new Error('Database ยังไม่พร้อม: ' + (health.error ?? ''))
-
         // Fetch all datasets in parallel
         const [effort, catchRows, tsSppRows, envRows] = await Promise.all([
-          fetchAllPages('/api/tables/effort2'),
-          fetchAllPages('/api/tables/catch2'),
-          fetchAllPages('/api/tables/ts_spp'),
-          fetchAllPages('/api/environment/daily?start_date=2022-01-01&end_date=2023-12-31', 1000),
+          fetchApiRows('/api/tables/effort2'),
+          fetchApiRows('/api/tables/catch2'),
+          fetchApiRows('/api/tables/ts_spp'),
+          fetchApiRows('/api/environment/daily?start_date=2022-01-01&end_date=2023-12-31', 1000),
         ])
 
         if (cancelled) return
