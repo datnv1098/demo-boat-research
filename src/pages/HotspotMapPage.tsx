@@ -2,15 +2,130 @@ import { useEffect, useMemo, useState } from 'react'
 import { Map as MapIcon } from 'lucide-react'
 import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { loadRealData } from '../data/dataAdapter'
 import { ThailandMap } from '../components/ThailandMap'
 
+const API_BASE = 'http://localhost:3000'
+
+async function fetchAllPages(path: string, limit = 500): Promise<any[]> {
+  const rows: any[] = []
+  let page = 1
+  while (true) {
+    const sep = path.includes('?') ? '&' : '?'
+    const res = await fetch(`${API_BASE}${path}${sep}page=${page}&limit=${limit}`)
+    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+    const json = await res.json()
+    const data = Array.isArray(json.data) ? json.data : []
+    rows.push(...data)
+    if (data.length < limit) break
+    if (json.total != null && rows.length >= Number(json.total)) break
+    page += 1
+  }
+  return rows
+}
+
+function normalizeZone(mainArea: string): string {
+  const v = String(mainArea || '').toUpperCase().trim()
+  if (!v) return 'N/A'
+  if (v === 'AND') return 'ADM'
+  if (v === 'ADM' || v.includes('ANDAMAN')) return 'ADM'
+  if (v === 'GOT' || v.includes('GULF')) return 'GOT'
+  return v
+}
+
+function parseSurveyDate(raw?: string): Date | null {
+  if (!raw) return null
+  const s = String(raw).trim()
+  if (!s) return null
+
+  const isoDate = /^\d{4}-\d{2}-\d{2}/.test(s)
+  if (isoDate) {
+    const d = new Date(s)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  const mdY = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (mdY) {
+    const month = Number(mdY[1])
+    const day = Number(mdY[2])
+    const year = Number(mdY[3])
+    const d = new Date(year, month - 1, day)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') {
+    const cleaned = value.replace(/,/g, '').trim()
+    const n = Number(cleaned)
+    return isFinite(n) ? n : NaN
+  }
+  return NaN
+}
+
+function normalizeLongitude(value: number): number {
+  if (!isFinite(value)) return NaN
+  if (value > 180) return value - 360
+  if (value < -180) return value + 360
+  return value
+}
+
+function parseCoordinate(value: unknown, type: 'lat' | 'lon'): number {
+  const raw = toNumber(value)
+  if (!isFinite(raw)) return NaN
+
+  let n = raw
+  // Some source rows store coordinates in DDMM.MMMM format.
+  if (Math.abs(n) > 180 && Math.abs(n) < 10000) {
+    const sign = n < 0 ? -1 : 1
+    const abs = Math.abs(n)
+    const deg = Math.floor(abs / 100)
+    const min = abs - deg * 100
+    n = sign * (deg + min / 60)
+  }
+
+  if (type === 'lon') {
+    return normalizeLongitude(n)
+  }
+  return n
+}
+
+function getStationCenter(effort: any): { lat: number; lon: number } {
+  const startLat = parseCoordinate(effort?.lat_start, 'lat')
+  const startLon = parseCoordinate(effort?.long_start, 'lon')
+  const endLat = parseCoordinate(effort?.lat_end, 'lat')
+  const endLon = parseCoordinate(effort?.long_end, 'lon')
+
+  if (isFinite(startLat) && isFinite(startLon) && isFinite(endLat) && isFinite(endLon)) {
+    return {
+      lat: (startLat + endLat) / 2,
+      lon: (startLon + endLon) / 2,
+    }
+  }
+
+  if (isFinite(startLat) && isFinite(startLon)) {
+    return { lat: startLat, lon: startLon }
+  }
+
+  if (isFinite(endLat) && isFinite(endLon)) {
+    return { lat: endLat, lon: endLon }
+  }
+
+  return { lat: NaN, lon: NaN }
+}
 
 
 interface StationData {
   link: string
   lat: number
   lon: number
+  startLat?: number
+  startLon?: number
+  endLat?: number
+  endLon?: number
   cpue: number
   zone: string
   depth: number
@@ -20,15 +135,38 @@ interface StationData {
   salinity?: number
   monthLabel: string
   date: Date | null
+  yearNum: number
+  monthNum: number
+  quarterNum: number
   speciesSet: string[]
+  totalCatch: number
+  effortHours: number
+}
+
+interface HotspotCell {
+  id: string
+  cpue: number
+  count: number
+  totalCatch: number
+  totalEffort: number
+  centerLat: number
+  centerLon: number
+  latMin: number
+  latMax: number
+  lonMin: number
+  lonMax: number
 }
 
 export default function HotspotMapPage() {
-  const [data, setData] = useState<any | null>(null)
-  const [, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [effortRows, setEffortRows] = useState<any[]>([])
+  const [catchRows, setCatchRows] = useState<any[]>([])
   const { t, lang } = useI18n()
 
-  const [month, setMonth] = useState<string>('all')
+  const [yearFilter, setYearFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<'previous' | 'month'>('previous')
+  const [valueFilter, setValueFilter] = useState<string>('all')
   const [zone, setZone] = useState<string>('all')
   const [depthClass] = useState<string>('all')
   const [species] = useState<string>('all')
@@ -36,25 +174,44 @@ export default function HotspotMapPage() {
   const [heatmapType] = useState<'cpue' | 'temp'>('cpue')
 
   useEffect(() => {
-    loadRealData()
-      .then(setData)
-      .catch((e) => setError(String(e)))
+    let cancelled = false
+
+    async function loadFromApi() {
+      setLoading(true)
+      setError(null)
+      try {
+        const healthRes = await fetch(`${API_BASE}/health`)
+        const health = await healthRes.json()
+        if (!healthRes.ok || health.db !== 'connected') {
+          throw new Error('Backend/Database is not ready')
+        }
+
+        const [effortData, catchData] = await Promise.all([
+          fetchAllPages('/api/tables/effort2'),
+          fetchAllPages('/api/tables/catch2'),
+        ])
+
+        if (!cancelled) {
+          setEffortRows(effortData)
+          setCatchRows(catchData)
+        }
+      } catch (e) {
+        if (!cancelled) setError(String(e))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadFromApi()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const { headerRows, catchRows, waterQlRows } = useMemo(() => {
-    if (!data) return { headerRows: [], catchRows: [], waterQlRows: [] }
-    const lower: Record<string, any> = {}
-    Object.keys(data).forEach((k) => (lower[k.toLowerCase()] = data[k]))
-    return {
-      headerRows: Array.isArray(lower['header']) ? lower['header'] : [],
-      catchRows: Array.isArray(lower['catch']) ? lower['catch'] : [],
-      waterQlRows: Array.isArray(lower['water_ql']) ? lower['water_ql'] : [],
-    }
-  }, [data])
-
   function toMonthLabel(dateStr?: string) {
-    if (!dateStr) return 'N/A'
-    const d = new Date(dateStr)
+    const d = parseSurveyDate(dateStr)
+    if (!d) return 'N/A'
     const m = d.getMonth()
     const year = d.getFullYear()
     const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
@@ -84,133 +241,197 @@ export default function HotspotMapPage() {
 
   // Calculate CPUE for each station
   const stationData = useMemo(() => {
-    const linkToCatchWeight: Record<string, number> = {}
-    const linkSpeciesSet = new globalThis.Map<string, Set<string>>()
+    const linkToCatchWeight = new Map<string, number>()
+    const linkSpeciesSet = new Map<string, Set<string>>()
 
-    // Process catchRows from file
     for (const c of catchRows) {
-      const link = String(c?.Link)
+      const link = String(c?.sample_id || '')
+      if (!link) continue
       const w = Number(c?.total_weight) || 0
-      linkToCatchWeight[link] = (linkToCatchWeight[link] || 0) + w
-      const spp = String(c?.btscodename || 'ALL')
+      linkToCatchWeight.set(link, (linkToCatchWeight.get(link) || 0) + w)
+      const spp = String(c?.species_id || 'ALL')
       if (!linkSpeciesSet.has(link)) linkSpeciesSet.set(link, new Set<string>())
       linkSpeciesSet.get(link)!.add(spp)
     }
 
-    const waterQlMap: Record<string, any> = {}
-    for (const w of waterQlRows) {
-      const key = `${String(w?.station)}_${String(w?.year)}_${String(w?.month)}`
-      waterQlMap[key] = w
-    }
-
     const list: StationData[] = []
 
-    // 1. Add stations from headerRows (mock data file)
-    for (const h of headerRows) {
-      const link = String(h?.Link)
-      const towMin = Number(h?.Tow)
+    for (const h of effortRows) {
+      const link = String(h?.sample_id || '')
+      if (!link) continue
+
+      const towMin = Number(h?.tow_time)
       const hours = isFinite(towMin) ? towMin / 60 : NaN
-      const totalCatch = linkToCatchWeight[link] || 0
+      const totalCatch = linkToCatchWeight.get(link) || 0
       const cpue = isFinite(hours) && hours > 0 ? totalCatch / hours : NaN
-      
-      const latStart = Number(h?.LatStart)
-      const lonStart = Number(h?.LongStart)
-      const lat = isFinite(latStart) ? latStart : NaN
-      const lon = isFinite(lonStart) ? lonStart : NaN
+
+      const center = getStationCenter(h)
+      const startLat = parseCoordinate(h?.lat_start, 'lat')
+      const startLon = parseCoordinate(h?.long_start, 'lon')
+      const endLat = parseCoordinate(h?.lat_end, 'lat')
+      const endLon = parseCoordinate(h?.long_end, 'lon')
+
+      const lat = center.lat
+      const lon = center.lon
+      const surveyDate = parseSurveyDate(String(h?.sample_date_eng || ''))
+      if (!surveyDate) continue
+      const yearNum = surveyDate.getFullYear()
+      const monthNum = surveyDate.getMonth() + 1
+      const quarterNum = Math.floor((monthNum - 1) / 3) + 1
 
       if (!isFinite(lat) || !isFinite(lon)) continue
+      if (!isFinite(cpue) || cpue <= 0) continue
 
       list.push({
         link,
         lat,
         lon,
+        startLat: isFinite(startLat) ? startLat : undefined,
+        startLon: isFinite(startLon) ? startLon : undefined,
+        endLat: isFinite(endLat) ? endLat : undefined,
+        endLon: isFinite(endLon) ? endLon : undefined,
         cpue: isFinite(cpue) ? cpue : 0,
-        zone: String(h?.Zone || 'Gulf'),
-        depth: Number(h?.Depth) || 0,
-        course: String(h?.Course || ''),
-        monthLabel: toMonthLabel(h?.Date),
-        date: h?.Date ? new Date(h?.Date) : null,
+        zone: normalizeZone(String(h?.main_area || '')),
+        depth: Number(h?.depth) || 0,
+        course: String(h?.course || ''),
+        monthLabel: toMonthLabel(String(h?.sample_date_eng || '')),
+        date: surveyDate,
+        yearNum,
+        monthNum,
+        quarterNum,
         speciesSet: Array.from(linkSpeciesSet.get(link) || []),
+        totalCatch,
+        effortHours: isFinite(hours) ? hours : 0,
       })
     }
 
     return list
-  }, [headerRows, catchRows, waterQlRows, lang])
+  }, [effortRows, catchRows, lang])
 
   const filterOptions = useMemo(() => {
-    const zoneSet = new Set(stationData.map((r) => r.zone))
+    const zoneSet = new Set(stationData.map((r: StationData) => r.zone))
     const zones = Array.from(zoneSet).sort()
+    const years = Array.from(new Set(stationData.map((r: StationData) => String(r.yearNum)))).sort()
     const speciesSet = new Set<string>()
-    stationData.forEach((r) => {
+    stationData.forEach((r: StationData) => {
       if (r.speciesSet && r.speciesSet.length > 0) {
-        r.speciesSet.forEach((sp) => speciesSet.add(sp))
+        r.speciesSet.forEach((sp: string) => speciesSet.add(sp))
       }
     })
     const speciesList = Array.from(speciesSet).sort()
-    const monthSet: Record<string, Date> = {}
-    for (const r of stationData) {
-      if (r.monthLabel && r.date && !monthSet[r.monthLabel]) {
-        monthSet[r.monthLabel] = r.date
-      }
-    }
-    const months = Object.keys(monthSet).sort((a, b) => {
-      const dateA = monthSet[a]
-      const dateB = monthSet[b]
-      if (!dateA || !dateB) return 0
-      return dateB.getTime() - dateA.getTime()
-    })
-    return { zones, months, species: speciesList }
+    return { zones, years, species: speciesList }
   }, [stationData])
 
+  const valueOptions = useMemo(() => {
+    if (typeFilter === 'previous') return ['1', '2', '3', '4']
+    return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+  }, [typeFilter])
+
+  useEffect(() => {
+    setValueFilter('all')
+  }, [typeFilter])
+
   const filtered = useMemo(() => {
-    return stationData.filter((r) => {
+    return stationData.filter((r: StationData) => {
       if (!isMarineLocation(r.lat, r.lon, r.depth)) return false
       return (
-        (month === 'all' || r.monthLabel === month) &&
+        (yearFilter === 'all' || String(r.yearNum) === yearFilter) &&
+        (valueFilter === 'all' || (typeFilter === 'previous' ? r.quarterNum === Number(valueFilter) : r.monthNum === Number(valueFilter))) &&
         (zone === 'all' || r.zone === zone) &&
         (depthClass === 'all' || depthToClass(r.depth) === depthClass) &&
         (species === 'all' || (r.speciesSet && r.speciesSet.includes(species)))
       )
     })
-  }, [stationData, month, zone, depthClass, species])
+  }, [stationData, yearFilter, typeFilter, valueFilter, zone, depthClass, species])
 
-  const percentileThreshold = useMemo(() => {
-    if (!filtered.length) return 0
-    const cpues = filtered.map((r) => r.cpue).filter((v) => isFinite(v)).sort((a, b) => a - b)
-    if (!cpues.length) return 0
-    const idx = percentileMode === 'P95' ? Math.floor(cpues.length * 0.95) : Math.floor(cpues.length * 0.9)
-    return cpues[idx] || 0
-  }, [filtered, percentileMode])
-
-  const grid = useMemo(() => {
+  const gridCells = useMemo<HotspotCell[]>(() => {
     const binSize = 0.2
     const latMin = 6, latMax = 14, lonMin = 95, lonMax = 105
-    const latBins = Math.ceil((latMax - latMin) / binSize)
-    const lonBins = Math.ceil((lonMax - lonMin) / binSize)
-    const acc: { value: number; count: number }[][] = Array.from({ length: latBins }, () =>
-      Array(lonBins).fill(null).map(() => ({ value: 0, count: 0 }))
-    )
+    const bucket = new Map<string, HotspotCell>()
+
     for (const s of filtered) {
       if (!isFinite(s.lat) || !isFinite(s.lon)) continue
-      let val = heatmapType === 'cpue' ? s.cpue : (s.temp || 0)
+      const val = heatmapType === 'cpue' ? s.cpue : (s.temp || 0)
       if (!isFinite(val) || val <= 0) continue
       if (s.lat < latMin || s.lat > latMax || s.lon < lonMin || s.lon > lonMax) continue
-      const r = Math.min(latBins - 1, Math.max(0, Math.floor((s.lat - latMin) / binSize)))
-      const c = Math.min(lonBins - 1, Math.max(0, Math.floor((s.lon - lonMin) / binSize)))
-      acc[r][c].value += val
-      acc[r][c].count += 1
+      const r = Math.max(0, Math.floor((s.lat - latMin) / binSize))
+      const c = Math.max(0, Math.floor((s.lon - lonMin) / binSize))
+      const id = `${r}-${c}`
+      const cellLatMin = latMin + r * binSize
+      const cellLonMin = lonMin + c * binSize
+
+      if (!bucket.has(id)) {
+        bucket.set(id, {
+          id,
+          cpue: 0,
+          count: 0,
+          totalCatch: 0,
+          totalEffort: 0,
+          centerLat: cellLatMin + binSize / 2,
+          centerLon: cellLonMin + binSize / 2,
+          latMin: cellLatMin,
+          latMax: cellLatMin + binSize,
+          lonMin: cellLonMin,
+          lonMax: cellLonMin + binSize,
+        })
+      }
+
+      const cell = bucket.get(id)!
+      cell.count += 1
+      cell.totalCatch += s.totalCatch
+      cell.totalEffort += s.effortHours
     }
-    return acc.map((row, r) =>
-      row.map((cell, c) => ({
-        r, c, cpue: cell.count > 0 ? cell.value / cell.count : 0, count: cell.count,
-        coordinates: { lat: latMin + r * binSize + binSize / 2, lon: lonMin + c * binSize + binSize / 2 }
+
+    return Array.from(bucket.values())
+      .map((cell) => ({
+        ...cell,
+        cpue: cell.totalEffort > 0 ? cell.totalCatch / cell.totalEffort : 0,
       }))
-    )
+      .filter((cell) => cell.cpue > 0)
+      .sort((a, b) => b.cpue - a.cpue)
   }, [filtered, heatmapType])
 
+  const hotspotThreshold = useMemo(() => {
+    if (!gridCells.length) return 0
+    const values = gridCells
+      .map((cell: HotspotCell) => cell.cpue)
+      .filter((v: number) => isFinite(v))
+      .sort((a: number, b: number) => a - b)
+    if (!values.length) return 0
+    const idx = percentileMode === 'P95' ? Math.floor(values.length * 0.95) : Math.floor(values.length * 0.9)
+    return values[idx] || 0
+  }, [gridCells, percentileMode])
+
+  const hotspotCells = useMemo(() => {
+    return gridCells.filter((cell: HotspotCell) => cell.cpue >= hotspotThreshold)
+  }, [gridCells, hotspotThreshold])
+
   const hotspotStations = useMemo(() => {
-    return filtered.filter((s) => s.cpue >= percentileThreshold)
-  }, [filtered, percentileThreshold])
+    const hotspotIds = new Set(hotspotCells.map((cell: HotspotCell) => cell.id))
+    const binSize = 0.2
+    const latMin = 6
+    const lonMin = 95
+    return filtered.filter((station: StationData) => {
+      const r = Math.max(0, Math.floor((station.lat - latMin) / binSize))
+      const c = Math.max(0, Math.floor((station.lon - lonMin) / binSize))
+      return hotspotIds.has(`${r}-${c}`)
+    })
+  }, [filtered, hotspotCells])
+
+  const summary = useMemo(() => {
+    const totalCatch = filtered.reduce((sum: number, item: StationData) => sum + item.totalCatch, 0)
+    const totalEffort = filtered.reduce((sum: number, item: StationData) => sum + item.effortHours, 0)
+    const filteredCpue = totalEffort > 0 ? totalCatch / totalEffort : 0
+    const topCell = hotspotCells[0] || gridCells[0] || null
+    return {
+      totalCatch,
+      totalEffort,
+      filteredCpue,
+      topCell,
+      activeCells: gridCells.length,
+      haulCount: filtered.length,
+    }
+  }, [filtered, hotspotCells, gridCells])
 
   function exportPDF() {
     const win = window.open('', '_blank', 'width=1024,height=768')
@@ -219,10 +440,10 @@ export default function HotspotMapPage() {
       <style>body{font-family: Arial, sans-serif; padding: 20px;} table{border-collapse:collapse;width:100%;} th,td{border:1px solid #ddd;padding:8px;} th{background:#f5f5f5;}</style>
       </head><body>
       <h2>Hotspot Map - ${percentileMode}</h2>
-      <p>Hotspot Stations: ${hotspotStations.length}</p>
+      <p>Hotspot Cells: ${hotspotCells.length}</p>
       <table>
-        <tr><th>Link</th><th>CPUE</th><th>Zone</th><th>Depth</th></tr>
-        ${hotspotStations.slice(0, 50).map((s) => `<tr><td>${s.link}</td><td>${s.cpue.toFixed(2)}</td><td>${s.zone}</td><td>${s.depth}</td></tr>`).join('')}
+        <tr><th>Cell</th><th>CPUE</th><th>Hauls</th><th>Catch</th></tr>
+        ${hotspotCells.slice(0, 50).map((cell: HotspotCell) => `<tr><td>${cell.id}</td><td>${cell.cpue.toFixed(2)}</td><td>${cell.count}</td><td>${cell.totalCatch.toFixed(2)}</td></tr>`).join('')}
       </table>
       <script>window.print();</script>
       </body></html>`)
@@ -235,17 +456,61 @@ export default function HotspotMapPage() {
   return (
     <div>
       <Header title={t('hot.title')} desc={t('hot.desc')} icon={<MapIcon className="h-6 w-6" />} onExport={exportPDF} exportLabel={`${t('header.export')} PDF`} sticky={true} />
-      {!data && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
-      {data && (
+      {loading && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
+      {error && <div className="text-sm text-red-600">{error}</div>}
+      {!loading && !error && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div className="rounded-lg border bg-card px-4 py-3">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('hot.kpi.filteredCpue')}</div>
+              <div className="text-2xl font-semibold">{summary.filteredCpue.toFixed(2)}</div>
+              <div className="text-xs text-muted-foreground">{summary.haulCount} {t('hot.kpi.haulFiltered')}</div>
+            </div>
+            <div className="rounded-lg border bg-card px-4 py-3">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('hot.kpi.activeCells')}</div>
+              <div className="text-2xl font-semibold">{summary.activeCells}</div>
+              <div className="text-xs text-muted-foreground">{t('hot.kpi.weighted')}</div>
+            </div>
+            <div className="rounded-lg border bg-card px-4 py-3">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('hot.kpi.hotspotCells')}</div>
+              <div className="text-2xl font-semibold">{hotspotCells.length}</div>
+              <div className="text-xs text-muted-foreground">{t('hot.threshold')} {percentileMode}</div>
+            </div>
+            <div className="rounded-lg border bg-card px-4 py-3">
+              <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('hot.kpi.topHotspot')}</div>
+              <div className="text-2xl font-semibold">{summary.topCell ? summary.topCell.cpue.toFixed(2) : '0.00'}</div>
+              <div className="text-xs text-muted-foreground">{summary.topCell ? summary.topCell.id : t('hot.kpi.noCell')}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div>
-              <Label>{t('hot.month')}</Label>
-              <Select value={month} onValueChange={setMonth}>
+              <Label>{t('filter.year')}</Label>
+              <Select value={yearFilter} onValueChange={setYearFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">{t('common.all') || 'All'}</SelectItem>
-                  {filterOptions.months.map((m, idx) => <SelectItem key={idx} value={String(m)}>{String(m)}</SelectItem>)}
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {filterOptions.years.map((m: string, idx: number) => <SelectItem key={idx} value={String(m)}>{String(m)}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.type')}</Label>
+              <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="previous">{t('filter.type.previous')}</SelectItem>
+                  <SelectItem value="month">{t('filter.type.month')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.value')}</Label>
+              <Select value={valueFilter} onValueChange={setValueFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {valueOptions.map((m: string) => <SelectItem key={m} value={String(m)}>{String(m)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -255,7 +520,7 @@ export default function HotspotMapPage() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t('common.all')}</SelectItem>
-                  {filterOptions.zones.map((z, idx) => <SelectItem key={idx} value={String(z)}>{String(z)}</SelectItem>)}
+                  {filterOptions.zones.map((z: string, idx: number) => <SelectItem key={idx} value={String(z)}>{String(z)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -270,7 +535,15 @@ export default function HotspotMapPage() {
               </Select>
             </div>
           </div>
-          <ThailandMap hotspotData={grid as any} stationData={hotspotStations} month={month} blacklistLinks={blacklistLinks} />
+          <ThailandMap
+            hotspotData={hotspotCells as any}
+            stationData={filtered}
+            month={valueFilter === 'all' ? 'all' : (typeFilter === 'month' ? `M${valueFilter}` : `Q${valueFilter}`)}
+            blacklistLinks={blacklistLinks}
+            percentileThreshold={hotspotThreshold}
+            hotspotStations={hotspotStations}
+            gridCells={gridCells as any}
+          />
         </div>
       )}
     </div>

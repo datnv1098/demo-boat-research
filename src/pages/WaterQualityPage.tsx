@@ -2,60 +2,121 @@ import { useMemo, useState, useEffect } from 'react';
 import { Header, Label, Table, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useI18n } from '../lib/i18n';
-import { loadRealData } from '../data/dataAdapter';
 import { GaugeChart } from '../components/GaugeChart';
+
+const API_BASE = 'http://localhost:3000';
+
+async function fetchAllPages(path: string, limit = 1000): Promise<any[]> {
+  const rows: any[] = [];
+  let page = 1;
+  while (true) {
+    const sep = path.includes('?') ? '&' : '?';
+    const res = await fetch(`${API_BASE}${path}${sep}page=${page}&limit=${limit}`);
+    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
+    const json = await res.json();
+    const data = Array.isArray(json.data) ? json.data : [];
+    rows.push(...data);
+    if (data.length < limit) break;
+    if (json.total != null && rows.length >= Number(json.total)) break;
+    page += 1;
+  }
+  return rows;
+}
+
+function toZoneLabel(regionCode: string): string {
+  const code = String(regionCode || '').toUpperCase().trim();
+  if (code === 'ADM') return 'Andaman';
+  if (code === 'GOT') return 'Gulf';
+  return code || 'Unknown';
+}
+
+function parseMonthFromDate(dateRaw: string): { monthStr: string; monthNum: number; year: number } {
+  const d = new Date(String(dateRaw || ''));
+  if (isNaN(d.getTime())) return { monthStr: '', monthNum: 0, year: 0 };
+  const monthNum = d.getUTCMonth() + 1;
+  const year = d.getUTCFullYear();
+  return {
+    monthStr: `${String(monthNum).padStart(2, '0')}/${year}`,
+    monthNum,
+    year,
+  };
+}
+
+interface WaterRow {
+  Month: string;
+  MonthNum: number;
+  Year: number;
+  Zone: string;
+  Temp: number;
+  DO: number;
+  pH: number;
+  Salinity: number;
+  Date: string;
+  RegionCode: string;
+}
+
+interface TopRow {
+  rank: number;
+  value: string;
+  month: string;
+  zone: string;
+}
 
 export default function WaterQualityPage() {
   const { t } = useI18n();
-  const [data, setData] = useState<any>(null);
+  const [waterRows, setWaterRows] = useState<WaterRow[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [month, setMonth] = useState('all');
+  const [yearFilter, setYearFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<'previous' | 'month'>('previous');
+  const [valueFilter, setValueFilter] = useState('all');
   const [zone, setZone] = useState('all');
 
   useEffect(() => {
-    loadRealData()
-      .then(setData)
-      .catch((e) => setError(String(e)));
-  }, []);
+    let cancelled = false;
 
-  // Parse water quality rows and transform data structure
-  const waterRows = useMemo(() => {
-    if (!data) return [];
-    const lower = {} as Record<string, any>;
-    Object.keys(data).forEach((k) => (lower[k.toLowerCase()] = data[k]));
-    const rawData = Array.isArray(lower['water_ql']) ? lower['water_ql'] : [];
-    
-    // Transform data to match expected format
-    // Map stations to zones: 1-4 -> Gulf, 5-9 -> Andaman (for demo purposes)
-    const getZoneFromStation = (station: number): string => {
-      if (station <= 4) return 'Gulf';
-      return 'Andaman';
+    async function loadFromApi() {
+      setError(null);
+      try {
+        const healthRes = await fetch(`${API_BASE}/health`);
+        const health = await healthRes.json();
+        if (!healthRes.ok || health.db !== 'connected') {
+          throw new Error('Backend/Database is not ready');
+        }
+
+        const envRows = await fetchAllPages('/api/environment/daily', 1000);
+        const normalized: WaterRow[] = envRows.map((r: any) => {
+          const { monthStr, monthNum, year } = parseMonthFromDate(String(r.date ?? ''));
+          return {
+            Month: monthStr,
+            MonthNum: monthNum,
+            Year: year,
+            Zone: toZoneLabel(String(r.region_code ?? '')),
+            Temp: Number(r.temp_c ?? 0),
+            DO: Number(r.do_mg_l_approx ?? 0),
+            pH: Number(r.ph_total_scale ?? 0),
+            Salinity: Number(r.salinity_psu ?? 0),
+            Date: String(r.date ?? ''),
+            RegionCode: String(r.region_code ?? ''),
+          };
+        }).filter((r: WaterRow) => r.Month && (r.Zone === 'Andaman' || r.Zone === 'Gulf'));
+
+        if (!cancelled) setWaterRows(normalized);
+      } catch (e) {
+        if (!cancelled) setError(String(e));
+      }
+    }
+
+    loadFromApi();
+    return () => {
+      cancelled = true;
     };
-    
-    return rawData.map((r: any) => {
-      const monthNum = Number(r.month || r.Month || '');
-      const yearNum = Number(r.year || r.Year || new Date().getFullYear());
-      // Format as MM/YYYY
-      const monthStr = monthNum ? `${String(monthNum).padStart(2, '0')}/${yearNum}` : '';
-      return {
-        Month: monthStr,
-        MonthNum: monthNum,
-        Year: yearNum,
-        Zone: getZoneFromStation(Number(r.station || 1)),
-        Temp: r.Temp_surface || r.temp_surface || r.Temp || r.temp || 0,
-        DO: r.DO_surface || r.do_surface || r.DO || r.do || 0,
-        pH: r.pH_surface || r.ph_surface || r.pH || r.ph || 0,
-        Salinity: r.Salinity_surface || r.salinity_surface || r.Salinity || r.salinity || 0,
-        Station: r.station || r.Station || '',
-      };
-    });
-  }, [data]);
+  }, []);
 
   // Collect filter options
   const filterOptions = useMemo(() => {
     // For filter, use MonthNum for sorting, but display as MM/YYYY
     const monthMap = new Map<string, number>();
-    waterRows.forEach(r => {
+    waterRows.forEach((r: WaterRow) => {
       if (r.MonthNum) {
         monthMap.set(r.Month, r.MonthNum + r.Year * 100); // Create sortable key
       }
@@ -63,26 +124,39 @@ export default function WaterQualityPage() {
     const months = Array.from(monthMap.entries())
       .sort((a, b) => a[1] - b[1])
       .map(([month]) => month);
-    const zones = Array.from(new Set(waterRows.map(r => r.Zone))).sort();
-    return { months, zones };
+    const years = Array.from(new Set(waterRows.map((r: WaterRow) => String(r.Year)))).sort();
+    const zones = Array.from(new Set(waterRows.map((r: WaterRow) => r.Zone))).sort();
+    return { months, years, zones };
   }, [waterRows]);
+
+  const valueOptions = useMemo(() => {
+    if (typeFilter === 'previous') return ['1', '2', '3', '4'];
+    return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+  }, [typeFilter]);
+
+  useEffect(() => {
+    setValueFilter('all');
+  }, [typeFilter]);
 
   // Filtered data
   const filtered = useMemo(() => {
-    return waterRows.filter((r) =>
-      (month === 'all' || String(r.Month) === month) &&
+    return waterRows.filter((r: WaterRow) =>
+      (yearFilter === 'all' || String(r.Year) === yearFilter) &&
+      (valueFilter === 'all' || (typeFilter === 'previous'
+        ? Math.floor((r.MonthNum - 1) / 3) + 1 === Number(valueFilter)
+        : r.MonthNum === Number(valueFilter))) &&
       (zone === 'all' || String(r.Zone) === zone)
     );
-  }, [waterRows, month, zone]);
+  }, [waterRows, yearFilter, typeFilter, valueFilter, zone]);
 
   const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
   const means = useMemo(() => {
     if (!filtered.length) return { temp: 0, do: 0, ph: 0, salinity: 0 };
     return {
-      temp: avg(filtered.map(r => Number(r.Temp))).toFixed(2),
-      do: avg(filtered.map(r => Number(r.DO))).toFixed(2),
-      ph: avg(filtered.map(r => Number(r.pH))).toFixed(2),
-      salinity: avg(filtered.map(r => Number(r.Salinity))).toFixed(2),
+      temp: avg(filtered.map((r: WaterRow) => Number(r.Temp))).toFixed(2),
+      do: avg(filtered.map((r: WaterRow) => Number(r.DO))).toFixed(2),
+      ph: avg(filtered.map((r: WaterRow) => Number(r.pH))).toFixed(2),
+      salinity: avg(filtered.map((r: WaterRow) => Number(r.Salinity))).toFixed(2),
     };
   }, [filtered]);
 
@@ -97,7 +171,7 @@ export default function WaterQualityPage() {
   // Line chart data
   const trendByMonth = useMemo(() => {
     const map: Record<string, { month: string, monthNum: number, year: number, temp: number[], do: number[], ph: number[], salinity: number[] }> = {};
-    for (const r of waterRows) {
+    for (const r of filtered) {
       const m = String(r.Month);
       if (!map[m]) map[m] = { month: m, monthNum: r.MonthNum || 0, year: r.Year || 0, temp: [], do: [], ph: [], salinity: [] };
       map[m].temp.push(Number(r.Temp));
@@ -118,22 +192,21 @@ export default function WaterQualityPage() {
       pH: avg(x.ph),
       Salinity: avg(x.salinity),
     }));
-  }, [waterRows]);
+  }, [filtered]);
 
   // Top 10 highest values for each parameter
   const top10Data = useMemo(() => {
-    const allData = [...waterRows];
+    const allData = [...filtered];
     
-    const sortAndTake = (data: any[], key: string) => {
+    const sortAndTake = (data: WaterRow[], key: keyof WaterRow): TopRow[] => {
       return [...data]
-        .sort((a, b) => Number(b[key]) - Number(a[key]))
+        .sort((a: WaterRow, b: WaterRow) => Number(b[key]) - Number(a[key]))
         .slice(0, 10)
-        .map((r, idx) => ({
+        .map((r: WaterRow, idx: number) => ({
           rank: idx + 1,
           value: Number(r[key]).toFixed(2),
           month: r.Month,
           zone: r.Zone,
-          station: r.Station,
         }));
     };
     
@@ -143,13 +216,13 @@ export default function WaterQualityPage() {
       ph: sortAndTake(allData, 'pH'),
       salinity: sortAndTake(allData, 'Salinity'),
     };
-  }, [waterRows]);
+  }, [filtered]);
 
   // Alert table: giá trị bất thường theo rule
   const alertRows = useMemo(() => {
-    const alerts = filtered.filter(r => (Number(r.Temp) > 30 || Number(r.DO) < 3 || Number(r.pH) < 7 || Number(r.Salinity) > 35));
+    const alerts = filtered.filter((r: WaterRow) => (Number(r.Temp) > 30 || Number(r.DO) < 3 || Number(r.pH) < 7 || Number(r.Salinity) > 35));
     // Sort by year first, then by month
-    return alerts.sort((a, b) => {
+    return alerts.sort((a: WaterRow, b: WaterRow) => {
       // Sort by year first
       if (a.Year !== b.Year) {
         return a.Year - b.Year;
@@ -178,24 +251,44 @@ export default function WaterQualityPage() {
     <div className="min-h-full pb-8">
       <Header title={t('water.title')} desc={t('water.desc')} sticky exportLabel={t('header.export') + ' .xlsx'} onExport={exportXLSX} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 my-2">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 my-2">
         <div>
-          <Label>{t('water.month')}</Label>
-          <Select defaultValue={month} onValueChange={setMonth}>
+          <Label>{t('filter.year')}</Label>
+          <Select value={yearFilter} onValueChange={setYearFilter}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('common.all')}</SelectItem>
-              {filterOptions.months.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+              {filterOptions.years.map((y: string) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>{t('filter.type')}</Label>
+          <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="previous">{t('filter.type.previous')}</SelectItem>
+              <SelectItem value="month">{t('filter.type.month')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>{t('filter.value')}</Label>
+          <Select value={valueFilter} onValueChange={setValueFilter}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('common.all')}</SelectItem>
+              {valueOptions.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div>
           <Label>{t('water.zone')}</Label>
-          <Select defaultValue={zone} onValueChange={setZone}>
+          <Select value={zone} onValueChange={setZone}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('common.all')}</SelectItem>
-              {filterOptions.zones.map((z) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
+              {filterOptions.zones.map((z: string) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -228,7 +321,7 @@ export default function WaterQualityPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {top10Data.temp.map((row) => (
+                    {top10Data.temp.map((row: TopRow) => (
                       <tr key={row.rank} className="border-b hover:bg-gray-50">
                         <td className="p-1">{row.rank}</td>
                         <td className="p-1 text-right font-medium">{row.value}°C</td>
@@ -268,7 +361,7 @@ export default function WaterQualityPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {top10Data.do.map((row) => (
+                    {top10Data.do.map((row: TopRow) => (
                       <tr key={row.rank} className="border-b hover:bg-gray-50">
                         <td className="p-1">{row.rank}</td>
                         <td className="p-1 text-right font-medium">{row.value} mg/L</td>
@@ -308,7 +401,7 @@ export default function WaterQualityPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {top10Data.ph.map((row) => (
+                    {top10Data.ph.map((row: TopRow) => (
                       <tr key={row.rank} className="border-b hover:bg-gray-50">
                         <td className="p-1">{row.rank}</td>
                         <td className="p-1 text-right font-medium">{row.value}</td>
@@ -348,7 +441,7 @@ export default function WaterQualityPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {top10Data.salinity.map((row) => (
+                    {top10Data.salinity.map((row: TopRow) => (
                       <tr key={row.rank} className="border-b hover:bg-gray-50">
                         <td className="p-1">{row.rank}</td>
                         <td className="p-1 text-right font-medium">{row.value} PSU</td>

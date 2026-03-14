@@ -3,35 +3,108 @@ import { Ruler } from 'lucide-react'
 import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button } from '../components/common'
 import { Table } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { loadRealData } from '../data/dataAdapter'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
 import { CPUEVisualDashboard } from '../components/CPUEVisualDashboard'
 
+const API_BASE = 'http://localhost:3000'
+
+async function fetchAllPages(path: string, limit = 500): Promise<any[]> {
+  const rows: any[] = []
+  let page = 1
+  while (true) {
+    const sep = path.includes('?') ? '&' : '?'
+    const res = await fetch(`${API_BASE}${path}${sep}page=${page}&limit=${limit}`)
+    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+    const json = await res.json()
+    const data = Array.isArray(json.data) ? json.data : []
+    rows.push(...data)
+    if (data.length < limit) break
+    if (json.total != null && rows.length >= Number(json.total)) break
+    page += 1
+  }
+  return rows
+}
+
+function normalizeZone(mainArea: string): string {
+  const v = String(mainArea || '').toUpperCase().trim()
+  if (!v) return 'N/A'
+  if (v === 'AND') return 'ADM'
+  if (v === 'ADM' || v.includes('ANDAMAN')) return 'ADM'
+  if (v === 'GOT' || v.includes('GULF')) return 'GOT'
+  return v
+}
+
+function parseSurveyDate(raw?: string): Date | null {
+  if (!raw) return null
+  const s = String(raw).trim()
+  if (!s) return null
+  const isoDate = /^\d{4}-\d{2}-\d{2}/.test(s)
+  if (isoDate) {
+    const d = new Date(s)
+    return isNaN(d.getTime()) ? null : d
+  }
+  const mdY = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (mdY) {
+    const month = Number(mdY[1])
+    const day = Number(mdY[2])
+    const year = Number(mdY[3])
+    const d = new Date(year, month - 1, day)
+    return isNaN(d.getTime()) ? null : d
+  }
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
 export default function LengthBiologyPage() {
-  const [data, setData] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [effortRows, setEffortRows] = useState<any[]>([])
+  const [catchRows, setCatchRows] = useState<any[]>([])
+  const [tsSppRows, setTsSppRows] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const { t, lang } = useI18n()
 
   const [species, setSpecies] = useState<string>('all')
-  const [month, setMonth] = useState<string>('all')
+  const [yearFilter, setYearFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<'previous' | 'month'>('previous')
+  const [valueFilter, setValueFilter] = useState<string>('all')
   const [zone, setZone] = useState<string>('all')
 
   useEffect(() => {
-    loadRealData()
-      .then(setData)
-      .catch((e) => setError(String(e)))
-  }, [])
+    let cancelled = false
+    async function loadFromApi() {
+      setLoading(true)
+      setError(null)
+      try {
+        const healthRes = await fetch(`${API_BASE}/health`)
+        const health = await healthRes.json()
+        if (!healthRes.ok || health.db !== 'connected') {
+          throw new Error('Backend/Database is not ready')
+        }
 
-  const { headerRows, catchRows } = useMemo(() => {
-    if (!data) return { headerRows: [], catchRows: [] }
-    const lower: Record<string, any> = {}
-    Object.keys(data).forEach((k) => (lower[k.toLowerCase()] = data[k]))
-    return {
-      headerRows: Array.isArray(lower['header']) ? lower['header'] : [],
-      catchRows: Array.isArray(lower['catch']) ? lower['catch'] : [],
+        const [effort, catchData, tsSpp] = await Promise.all([
+          fetchAllPages('/api/tables/effort2'),
+          fetchAllPages('/api/tables/catch2'),
+          fetchAllPages('/api/tables/ts_spp'),
+        ])
+
+        if (!cancelled) {
+          setEffortRows(effort)
+          setCatchRows(catchData)
+          setTsSppRows(tsSpp)
+        }
+      } catch (e) {
+        if (!cancelled) setError(String(e))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  }, [data])
+
+    loadFromApi()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function parseFreqtext(ft?: string) {
     if (!ft || typeof ft !== 'string') return []
@@ -45,8 +118,8 @@ export default function LengthBiologyPage() {
   }
 
   function toMonthLabel(dateStr?: string) {
-    if (!dateStr) return 'N/A'
-    const d = new Date(dateStr)
+    const d = parseSurveyDate(dateStr)
+    if (!d) return 'N/A'
     const m = d.getMonth()
     const year = d.getFullYear()
     const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
@@ -54,59 +127,99 @@ export default function LengthBiologyPage() {
     return (lang === 'th' ? thMonths[m] : enMonths[m]) + ' ' + year
   }
 
+  const speciesNameById = useMemo(() => {
+    const map = new Map<number, string>()
+    for (const s of tsSppRows) {
+      const id = Number(s?.idspp)
+      if (!isNaN(id)) map.set(id, String(s?.spp_sci_name || s?.common_name || s?.thai_name || id))
+    }
+    return map
+  }, [tsSppRows])
+
   const linkToHeader = useMemo(() => {
     const map = new Map<string, any>()
-    for (const h of headerRows) {
-      const d = h?.Date ? new Date(String(h?.Date)) : null
+    for (const h of effortRows) {
+      const d = parseSurveyDate(String(h?.sample_date_eng))
+      if (!d) continue
+      const yearNum = d.getFullYear()
+      const monthNum = d.getMonth() + 1
+      const quarterNum = Math.floor((monthNum - 1) / 3) + 1
       const monthKey = d && !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'N/A'
-      map.set(String(h?.Link), {
-        zone: h?.Zone || 'N/A',
-        area: h?.Area || 'N/A',
-        fishingArea: h?.fishingArea || '',
-        monthLabel: toMonthLabel(String(h?.Date)),
+      map.set(String(h?.sample_id || ''), {
+        zone: normalizeZone(String(h?.main_area || '')),
+        area: h?.rv_area != null ? String(h?.rv_area) : 'N/A',
+        fishingArea: normalizeZone(String(h?.main_area || '')),
+        monthLabel: toMonthLabel(String(h?.sample_date_eng)),
         monthKey,
+        yearNum,
+        monthNum,
+        quarterNum,
       })
     }
     return map
-  }, [headerRows, lang])
+  }, [effortRows, lang])
 
   const lengthFreqData = useMemo(() => {
     const list: any[] = []
     for (const c of catchRows) {
-      const link = String(c?.Link)
-      const speciesCode = String(c?.btscodename || 'ALL')
-      const ft = parseFreqtext(String(c?.freqtext))
-      if (!ft.length) continue
+      const link = String(c?.sample_id || '')
+      const speciesId = Number(c?.species_id)
+      const speciesCode = !isNaN(speciesId) ? String(speciesId) : 'ALL'
+      const speciesName = speciesNameById.get(speciesId) || String(c?.scientific_name || speciesCode)
+      const ft = parseFreqtext(String((c as any)?.freqtext || ''))
       const hdr = linkToHeader.get(link) || {}
       list.push({
         link,
         speciesCode,
+        speciesName,
         freqPairs: ft,
         zone: hdr.zone,
         area: hdr.area,
-        fishingArea: hdr.fishingArea || c.fishingArea || '',
+        fishingArea: hdr.fishingArea || hdr.zone || '',
         monthLabel: hdr.monthLabel,
         monthKey: hdr.monthKey,
-        total_weight: c.total_weight || 0,
+        yearNum: hdr.yearNum,
+        monthNum: hdr.monthNum,
+        quarterNum: hdr.quarterNum,
+        total_weight: Number(c?.total_weight) || 0,
       })
     }
     return list
-  }, [catchRows, linkToHeader])
+  }, [catchRows, linkToHeader, speciesNameById])
 
   const filterOptions = useMemo(() => {
-    const species = Array.from(new Set(lengthFreqData.map((r) => r.speciesCode))).sort()
-    const months = Array.from(new Set(lengthFreqData.map((r) => r.monthLabel))).sort()
+    const species = Array.from(new Set(lengthFreqData.map((r) => r.speciesName))).sort()
+    const years = Array.from(new Set(lengthFreqData.map((r) => String(r.yearNum)).filter((y) => y !== 'undefined'))).sort()
     const zones = Array.from(new Set(lengthFreqData.map((r) => r.zone))).sort()
-    return { species, months, zones }
+    return { species, years, zones }
   }, [lengthFreqData])
+
+  const valueOptions = useMemo(() => {
+    if (typeFilter === 'previous') return ['1', '2', '3', '4']
+    return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+  }, [typeFilter])
+
+  useEffect(() => {
+    setValueFilter('all')
+  }, [typeFilter])
 
   const filtered = useMemo(() => {
     return lengthFreqData.filter((r) => (
-      (species === 'all' || r.speciesCode === species) &&
-      (month === 'all' || r.monthLabel === month) &&
+      (species === 'all' || r.speciesName === species) &&
+      (yearFilter === 'all' || String(r.yearNum) === yearFilter) &&
+      (valueFilter === 'all' || (typeFilter === 'previous' ? r.quarterNum === Number(valueFilter) : r.monthNum === Number(valueFilter))) &&
       (zone === 'all' || r.zone === zone)
     ))
-  }, [lengthFreqData, species, month, zone])
+  }, [lengthFreqData, species, yearFilter, typeFilter, valueFilter, zone])
+
+  const hasRealLengthData = useMemo(() => filtered.some((r) => r.freqPairs.length > 0), [filtered])
+
+  function pairsForRecord(r: any): { length: number; count: number }[] {
+    if (r.freqPairs && r.freqPairs.length > 0) return r.freqPairs
+    // Fallback proxy when API lacks length bins: map one observation from total_weight.
+    const w = Number(r.total_weight) || 0
+    return w > 0 ? [{ length: w, count: 1 }] : []
+  }
 
   function calcBioIndices(freqPairs: { length: number; count: number }[]) {
     if (!freqPairs.length) return { lmean: 0, l95: 0, pctJuvenile: 0, lfi: 0, total: 0 }
@@ -124,18 +237,38 @@ export default function LengthBiologyPage() {
   }
 
   const aggregated = useMemo(() => {
+    if (!hasRealLengthData) {
+      const values = filtered.map((r) => Number(r.total_weight) || 0).filter((v) => v > 0)
+      if (!values.length) return []
+      const min = Math.min(...values)
+      const max = Math.max(...values)
+      const bins = 12
+      const width = (max - min) / bins || 1
+      const counts = Array.from({ length: bins }, () => 0)
+      for (const v of values) {
+        let idx = Math.floor((v - min) / width)
+        if (idx >= bins) idx = bins - 1
+        if (idx < 0) idx = 0
+        counts[idx] += 1
+      }
+      return counts.map((c, i) => ({
+        length: `${(min + i * width).toFixed(1)}–${(min + (i + 1) * width).toFixed(1)}`,
+        count: c,
+      }))
+    }
+
     const map = new Map<string, { length: number; count: number }>()
     for (const r of filtered) {
-      for (const p of r.freqPairs) {
+      for (const p of pairsForRecord(r)) {
         const key = p.length
         map.set(key, { length: key, count: (map.get(key)?.count || 0) + p.count })
       }
     }
     return Array.from(map.values()).sort((a, b) => a.length - b.length)
-  }, [filtered])
+  }, [filtered, hasRealLengthData])
 
   const bioStats = useMemo(() => {
-    const combined = filtered.flatMap((r) => r.freqPairs)
+    const combined = filtered.flatMap((r) => pairsForRecord(r))
     return calcBioIndices(combined)
   }, [filtered])
 
@@ -162,7 +295,7 @@ export default function LengthBiologyPage() {
   const lmeanByMonth = useMemo(() => {
     const map = new Map<string, { monthKey: string; monthLabel: string; lsum: number; cnt: number }>()
     for (const r of filtered) {
-      const s = calcBioIndices(r.freqPairs)
+      const s = calcBioIndices(pairsForRecord(r))
       const key = r.monthKey || 'N/A'
       const cur = map.get(key) || { monthKey: key, monthLabel: r.monthLabel || 'N/A', lsum: 0, cnt: 0 }
       cur.lsum += s.lmean
@@ -179,7 +312,7 @@ export default function LengthBiologyPage() {
   const lmeanByZone = useMemo(() => {
     const map = new Map<string, { zone: string; lsum: number; cnt: number }>()
     for (const r of filtered) {
-      const s = calcBioIndices(r.freqPairs)
+      const s = calcBioIndices(pairsForRecord(r))
       const key = r.zone || 'N/A'
       const cur = map.get(key) || { zone: key, lsum: 0, cnt: 0 }
       cur.lsum += s.lmean
@@ -193,39 +326,65 @@ export default function LengthBiologyPage() {
     <div>
       <Header title={t('len.title')} desc={t('len.desc')} icon={<Ruler className="h-6 w-6" />} sticky={true} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
-      {data && (
+      {loading && !error && <div className="text-sm text-muted-foreground">{t('loading.api')}</div>}
+      {!loading && !error && (
         <div className="space-y-8">
           {/* Rich Visual Dashboard */}
           <CPUEVisualDashboard data={filtered} />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {!hasRealLengthData && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm p-3">
+              {t('len.warn.proxyMode')}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
-              <Label>Species</Label>
+              <Label>{t('filter.year')}</Label>
+              <Select value={yearFilter} onValueChange={setYearFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {filterOptions.years.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.type')}</Label>
+              <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="previous">{t('filter.type.previous')}</SelectItem>
+                  <SelectItem value="month">{t('filter.type.month')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.value')}</Label>
+              <Select value={valueFilter} onValueChange={setValueFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {valueOptions.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.species')}</Label>
               <Select defaultValue={species} onValueChange={setSpecies}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
                   {filterOptions.species.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Month</Label>
-              <Select defaultValue={month} onValueChange={setMonth}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {filterOptions.months.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Zone</Label>
+              <Label>{t('hot.zone')}</Label>
               <Select defaultValue={zone} onValueChange={setZone}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
                   {filterOptions.zones.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
@@ -234,7 +393,7 @@ export default function LengthBiologyPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">Length Frequency Histogram</div>
+              <div className="text-sm font-medium mb-2">{hasRealLengthData ? t('len.chart.histogram') : t('len.chart.proxyHistogram')}</div>
               <div style={{ height: 300 }}>
                 <Chart
                   type="bar"
@@ -265,7 +424,7 @@ export default function LengthBiologyPage() {
                     xaxis: {
                       categories: aggregated.map(r => r.length),
                       title: {
-                        text: 'Length (cm)',
+                        text: hasRealLengthData ? 'Length (cm)' : 'Weight bin (kg)',
                         style: {
                           fontSize: '12px',
                         }
@@ -333,7 +492,7 @@ export default function LengthBiologyPage() {
             </div>
 
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">Lmean by Zone</div>
+              <div className="text-sm font-medium mb-2">{t('len.chart.lmeanByZone')}</div>
               <div style={{ height: 260 }}>
                 <Chart
                   type="bar"
@@ -422,7 +581,7 @@ export default function LengthBiologyPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">Lmean by Month</div>
+              <div className="text-sm font-medium mb-2">{t('len.chart.lmeanByMonth')}</div>
               <div style={{ height: 260 }}>
                 <Chart
                   type="line"
@@ -513,13 +672,13 @@ export default function LengthBiologyPage() {
               </div>
             </div>
             <div className="rounded-xl border bg-background p-3 flex flex-col">
-              <div className="text-sm font-medium mb-2">Bio Indices</div>
+              <div className="text-sm font-medium mb-2">{t('len.chart.bioIndices')}</div>
               <div className="space-y-2">
                 <div className="flex justify-between"><span>Lmean:</span><span className="font-medium">{bioStats.lmean.toFixed(2)} cm</span></div>
                 <div className="flex justify-between"><span>L95:</span><span className="font-medium">{bioStats.l95.toFixed(2)} cm</span></div>
                 <div className="flex justify-between"><span>%&lt;Lm50:</span><span className={`font-medium ${warning ? 'text-orange-600' : ''}`}>{bioStats.pctJuvenile.toFixed(2)}%</span></div>
                 <div className="flex justify-between"><span>LFI:</span><span className="font-medium">{bioStats.lfi.toFixed(3)}</span></div>
-                {warning && <div className="text-orange-600 text-sm font-medium">⚠️ Tỷ lệ cá non cao (≥60%)</div>}
+                {warning && <div className="text-orange-600 text-sm font-medium">{t('len.warn.juvenile')}</div>}
               </div>
               <div className="mt-4 flex-1" />
               <div className="pt-2 flex justify-end">
@@ -531,12 +690,12 @@ export default function LengthBiologyPage() {
           {/* Details table */}
           {(() => {
             const details = filtered.map((r: any) => {
-              const s = calcBioIndices(r.freqPairs)
-              return [r.link, r.speciesCode, r.zone, r.monthLabel, s.lmean.toFixed(2), s.l95.toFixed(2), s.pctJuvenile.toFixed(2) + '%']
+              const s = calcBioIndices(pairsForRecord(r))
+              return [r.link, r.speciesName, r.zone, r.monthLabel, s.lmean.toFixed(2), s.l95.toFixed(2), s.pctJuvenile.toFixed(2) + '%']
             })
             return (
               <div className="rounded-xl border bg-background p-3">
-                <div className="text-sm font-medium mb-2">Details (Top 100)</div>
+                <div className="text-sm font-medium mb-2">{t('len.chart.details')}</div>
                 <Table
                   columns={["Link", "Species", "Zone", "Month", "Lmean", "L95", "%<Lm50"]}
                   maxHeight={320}

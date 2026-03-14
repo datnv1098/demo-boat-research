@@ -157,48 +157,48 @@ export default function UserManagementPage() {
       <Header title={t('users.title')} desc={t('users.desc')} icon={<Users className="h-6 w-6" />} onExport={onTopbarExport} sticky={true} />
       <div className="space-y-4">
         {users.length === 0 && (
-          <div className="text-sm text-orange-600">No users found. Click "Load Demo" to seed 50 demo users.</div>
+          <div className="text-sm text-orange-600">{t('users.noUsers')}</div>
         )}
         {/* Filters & actions */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           <div className="md:col-span-2">
-            <Label>Search</Label>
-            <Input placeholder="Name or email" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Label>{t('filter.search')}</Label>
+            <Input placeholder={t('users.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
           <div>
-            <Label>Role</Label>
+            <Label>{t('users.role')}</Label>
             <Select value={role} onValueChange={(v: any) => setRole(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">{t('common.all')}</SelectItem>
                 {filterOptions.roles.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Office</Label>
+            <Label>{t('users.office')}</Label>
             <Select value={office} onValueChange={(v: any) => setOffice(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">{t('common.all')}</SelectItem>
                 {filterOptions.offices.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Status</Label>
+            <Label>{t('users.filterStatus')}</Label>
             <Select value={status} onValueChange={(v: any) => setStatus(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="all">{t('common.all')}</SelectItem>
                 {filterOptions.statuses.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={addUser}>Add User</Button>
-          <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => setUsers(generateDemoUsers(50))}>Load Demo</Button>
+          <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={addUser}>{t('users.addUser')}</Button>
+          <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => setUsers(generateDemoUsers(50))}>{t('users.loadDemo')}</Button>
         </div>
 
         {/* Users table */}

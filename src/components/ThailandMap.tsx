@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
 import { LatLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.heat'
@@ -22,18 +22,27 @@ L.Marker.prototype.options.icon = DefaultIcon
 
 // Type definitions
 interface HotspotCell {
-  coordinates: {
-    lat: number
-    lon: number
-  }
+  id: string
   cpue: number
   count: number
+  totalCatch: number
+  totalEffort: number
+  centerLat: number
+  centerLon: number
+  latMin: number
+  latMax: number
+  lonMin: number
+  lonMax: number
 }
 
 interface StationData {
   link: string
   lat: number
   lon: number
+  startLat?: number
+  startLon?: number
+  endLat?: number
+  endLon?: number
   cpue: number
   zone: string
   depth: number
@@ -45,11 +54,105 @@ interface StationData {
 }
 
 interface ThailandMapProps {
-  hotspotData: HotspotCell[][] // Keep for backward compatibility if needed
-  stationData?: StationData[] // Used for markers
+  hotspotData: HotspotCell[]
+  stationData?: StationData[]
+  hotspotStations?: StationData[]
+  gridCells?: HotspotCell[]
   percentileThreshold?: number
   month: string
   blacklistLinks?: string[]
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value))
+}
+
+function percentile(values: number[], p: number): number {
+  if (!values.length) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const idx = clamp(Math.floor(sorted.length * p), 0, sorted.length - 1)
+  return sorted[idx]
+}
+
+function normalizeCpue(cpue: number, p10: number, p90: number): number {
+  const low = Math.max(0, p10)
+  const high = Math.max(low + 1e-6, p90)
+  const denom = Math.log1p(high) - Math.log1p(low)
+  if (denom <= 0) return 0.25
+  const n = (Math.log1p(Math.max(0, cpue)) - Math.log1p(low)) / denom
+  return clamp(0.12 + clamp(n, 0, 1) * 0.88, 0.1, 1)
+}
+
+function makeSurfaceHeatPoints(stations: StationData[]): [number, number, number][] {
+  if (!stations.length) return []
+
+  const positiveCpue = stations.map((s) => s.cpue).filter((v) => isFinite(v) && v > 0)
+  const p10 = percentile(positiveCpue, 0.1)
+  const p90 = percentile(positiveCpue, 0.9)
+
+  const points: [number, number, number][] = []
+
+  for (const station of stations) {
+    if (!isFinite(station.cpue) || station.cpue <= 0) continue
+    const baseIntensity = normalizeCpue(station.cpue, p10, p90)
+
+    const hasTrack =
+      station.startLat != null &&
+      station.startLon != null &&
+      station.endLat != null &&
+      station.endLon != null &&
+      isFinite(station.startLat) &&
+      isFinite(station.startLon) &&
+      isFinite(station.endLat) &&
+      isFinite(station.endLon)
+
+    if (hasTrack) {
+      const startLat = Number(station.startLat)
+      const startLon = Number(station.startLon)
+      const endLat = Number(station.endLat)
+      const endLon = Number(station.endLon)
+      const segmentCount = 8
+      const dx = endLon - startLon
+      const dy = endLat - startLat
+      const len = Math.sqrt(dx * dx + dy * dy) || 1
+      const perpLat = -dx / len
+      const perpLon = dy / len
+
+      for (let i = 0; i <= segmentCount; i += 1) {
+        const t = i / segmentCount
+        const lat = startLat + (endLat - startLat) * t
+        const lon = startLon + (endLon - startLon) * t
+        const centerBoost = 1 - Math.abs(t - 0.5) * 0.55
+        const intensity = clamp(baseIntensity * centerBoost, 0.08, 1)
+        points.push([lat, lon, intensity])
+
+        const offset = 0.035
+        points.push([lat + perpLat * offset, lon + perpLon * offset, intensity * 0.42])
+        points.push([lat - perpLat * offset, lon - perpLon * offset, intensity * 0.42])
+      }
+      continue
+    }
+
+    points.push([station.lat, station.lon, baseIntensity])
+
+    const spreadRings = [0.05, 0.1, 0.18]
+    const decay = [0.55, 0.28, 0.12]
+    const dirs = 8
+    spreadRings.forEach((radius, ringIdx) => {
+      for (let i = 0; i < dirs; i += 1) {
+        const angle = (2 * Math.PI * i) / dirs
+        const latOffset = Math.sin(angle) * radius * 0.72
+        const lonOffset = Math.cos(angle) * radius * 1.25
+        points.push([
+          station.lat + latOffset,
+          station.lon + lonOffset,
+          clamp(baseIntensity * decay[ringIdx], 0.03, 0.6),
+        ])
+      }
+    })
+  }
+
+  return points
 }
 
 // Heatmap Layer Component with dynamic radius based on zoom
@@ -59,43 +162,35 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
   useEffect(() => {
     if (!map || !points.length) return
 
-    // Function to calculate pixel radius for 10 nautical miles
-    // 1 nautical mile = 1852 meters
-    // 10 nautical miles = 18520 meters
+    // Keep kernel close to nautical operational scale but slightly wider to form continuous coastal bands.
     const calculateRadius = (zoom: number): number => {
-      const NAUTICAL_MILES = 10
+      const NAUTICAL_MILES = 12
       const METERS_PER_NM = 1852
       const targetMeters = NAUTICAL_MILES * METERS_PER_NM
 
-      // Leaflet's meters per pixel at zoom level (at equator)
-      // Formula: 156543.03392 * Math.cos(latLng.lat * Math.PI / 180) / Math.pow(2, zoom)
-      // Using center of Thailand (around 13 degrees latitude)
       const centerLat = 10.0
       const metersPerPixel = 156543.03392 * Math.cos(centerLat * Math.PI / 180) / Math.pow(2, zoom)
 
       const radiusInPixels = targetMeters / metersPerPixel
-
-      // Clamp radius between reasonable bounds
-      return Math.max(10, Math.min(radiusInPixels, 200))
+      return Math.max(16, Math.min(radiusInPixels, 96))
     }
 
     const currentZoom = map.getZoom()
     const initialRadius = calculateRadius(currentZoom)
 
-    console.log(`Zoom: ${currentZoom}, Radius: ${initialRadius}px for 10 nautical miles`)
-
     // @ts-ignore - leaflet.heat doesn't have official types in some setups
     const heatLayer = L.heatLayer(points, {
       radius: initialRadius,
-      blur: 30,
-      minOpacity: 0.35,
+      blur: 38,
+      minOpacity: 0.18,
       gradient: {
-        0.0: '#2c3e9f', // xanh đậm
-        0.2: '#1fa2ff', // xanh biển
-        0.4: '#2ecc71', // xanh lục
-        0.6: '#f1c40f', // vàng
-        0.8: '#e67e22', // cam
-        1.0: '#e74c3c'  // đỏ
+        0.05: '#e8f7ff',
+        0.2: '#cbeeff',
+        0.35: '#9fddff',
+        0.5: '#77e2d0',
+        0.68: '#ffe68d',
+        0.84: '#ffbd7a',
+        1.0: '#ff7b6b',
       }
     }).addTo(map)
 
@@ -103,7 +198,6 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
     const handleZoomEnd = () => {
       const newZoom = map.getZoom()
       const newRadius = calculateRadius(newZoom)
-      console.log(`Zoom changed to: ${newZoom}, New radius: ${newRadius}px`)
 
       // @ts-ignore
       heatLayer.setOptions({ radius: newRadius })
@@ -122,26 +216,24 @@ function HeatmapLayer({ points }: { points: [number, number, number][] }) {
   return null
 }
 
-export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = [] }: ThailandMapProps) {
+export function ThailandMap({
+  hotspotData,
+  stationData = [],
+  hotspotStations = [],
+  gridCells = [],
+  blacklistLinks = [],
+}: ThailandMapProps) {
   const { t } = useI18n()
-  // Keep parameter used to satisfy TS noUnusedParameters when overlay removed
-  void hotspotData
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showStations, setShowStations] = useState(true)
-  const [showGrid, setShowGrid] = useState(false)
+  const [showGrid, setShowGrid] = useState(true)
+  const [showTracks, setShowTracks] = useState(true)
   const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('carto_voyager')
 
-  // Points are derived from selected hotspot stations
   const visibleStations = stationData.filter((s) => !blacklistLinks.includes(s.link))
-
-  // User requirement: Colored points are those in the marked list
-  const heatmapPoints: [number, number, number][] = visibleStations
-    .filter((p: any) => (p.cpue || 0) > 0)
-    .map((p: any) => [
-      p.lat,
-      p.lon,
-      p.cpue,
-    ] as [number, number, number])
+  const visibleHotspots = hotspotStations.filter((s) => !blacklistLinks.includes(s.link))
+  const visibleGridCells = gridCells.filter((cell) => cell.cpue > 0)
+  const heatmapPoints = makeSurfaceHeatPoints(visibleStations)
 
   // Provincial overlay removed per request
 
@@ -155,9 +247,10 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
     <div className="space-y-4">
       {/* Layer Controls */}
       <div className="relative z-50 flex flex-wrap gap-6 bg-muted/50 rounded-lg">
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1">
           <Switch
             id="heatmap"
+            className="scale-50 origin-left -mr-5"
             checked={showHeatmap}
             onCheckedChange={setShowHeatmap}
           />
@@ -166,9 +259,10 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
           </Label>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1">
           <Switch
             id="stations"
+            className="scale-50 origin-left -mr-5"
             checked={showStations}
             onCheckedChange={setShowStations}
           />
@@ -189,14 +283,27 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
           </Select>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1">
           <Switch
             id="grid"
+            className="scale-50 origin-left -mr-5"
             checked={showGrid}
             onCheckedChange={setShowGrid}
           />
           <Label htmlFor="grid" className="text-sm">
             {t('map.switch.grid')}
+          </Label>
+        </div>
+
+        <div className="flex items-center space-x-1">
+          <Switch
+            id="tracks"
+            className="scale-50 origin-left -mr-5"
+            checked={showTracks}
+            onCheckedChange={setShowTracks}
+          />
+          <Label htmlFor="tracks" className="text-sm">
+            Haul Tracks
           </Label>
         </div>
       </div>
@@ -207,8 +314,8 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
         style={{ height: '600px' }} // Increased height for better view
       >
         <MapContainer
-          center={[9.5, 100.5]}
-          zoom={8.5}
+          center={[9.2, 100.8]}
+          zoom={7.2}
           minZoom={3}
           maxZoom={9}
           style={{ height: '100%', width: '100%' }}
@@ -246,11 +353,29 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
           )}
 
           {/* Grid overlay */}
-          {showGrid && <GridOverlay spacing={1} stationData={visibleStations} />}
+          {showGrid && <GridOverlay gridCells={visibleGridCells} />}
+
+          {/* Haul tracks for visual verification of hotspot continuity */}
+          {showTracks &&
+            visibleStations
+              .filter(
+                (station) =>
+                  station.startLat != null &&
+                  station.startLon != null &&
+                  station.endLat != null &&
+                  station.endLon != null
+              )
+              .map((station, index) => (
+                <Polyline
+                  key={`track-${station.link}-${index}`}
+                  positions={[[Number(station.startLat), Number(station.startLon)], [Number(station.endLat), Number(station.endLon)]]}
+                  pathOptions={{ color: '#1f7a8c', weight: 1.6, opacity: 0.32 }}
+                />
+              ))}
 
           {/* Hotspot Stations as Markers */}
           {showStations &&
-            visibleStations.map((station: StationData, index: number) => (
+            visibleHotspots.map((station: StationData, index: number) => (
               <Marker key={index} position={[station.lat, station.lon]}>
                 <Popup>
                   <div className="p-2 min-w-[200px]">
@@ -306,11 +431,14 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
       <div className="flex justify-between items-center text-xs text-muted-foreground">
         <div>
           <strong>{t('map.legend.title')}</strong>
-          <span className="ml-2">{t('map.legend.province')}</span>
+          <span className="ml-2">{hotspotData.length} hotspot cells</span>
         </div>
         <div className="flex items-center gap-2">
           <span>{t('map.legend.low')}</span>
-          <div className="w-32 h-3 bg-gradient-to-r from-[#00ff00] via-[#ffff00] to-[#ff0000] rounded"></div>
+          <div
+            className="w-32 h-3 rounded"
+            style={{ background: 'linear-gradient(90deg, #e8f7ff 0%, #9fddff 30%, #77e2d0 50%, #ffe68d 72%, #ff7b6b 100%)' }}
+          ></div>
           <span>{t('map.legend.high')}</span>
         </div>
       </div>
@@ -319,163 +447,69 @@ export function ThailandMap({ hotspotData, stationData = [], blacklistLinks = []
 }
 
 function GridOverlay({
-  spacing = 1,
-  color = '#9ca3af',
-  weight = 0.75,
-  opacity = 0.5,
-  stationData = [],
+  gridCells = [],
+  borderColor = '#6b7280',
+  borderOpacity = 0.28,
 }: {
-  spacing?: number
-  color?: string
-  weight?: number
-  opacity?: number
-  stationData?: StationData[]
+  gridCells?: HotspotCell[]
+  borderColor?: string
+  borderOpacity?: number
 }) {
   const map = useMap()
 
-  // Function to count stations in a grid cell
-  const countStationsInCell = (cellLat: number, cellLon: number): number => {
-    return stationData.filter((station) => {
-      return (
-        station.lat >= cellLat &&
-        station.lat < cellLat + spacing &&
-        station.lon >= cellLon &&
-        station.lon < cellLon + spacing
-      )
-    }).length
-  }
-
-  // Function to get color based on station count
-  const getCellColor = (count: number): string => {
-    if (count === 0) return 'transparent'
-    if (count === 1) return '#86efac' // green-300 - xanh nhạt nhất
-    if (count === 2) return '#22c55e' // green-500 - xanh vừa
-    return '#15803d' // green-700 - xanh đậm nhất (3+)
-  }
-
   useEffect(() => {
     const group = L.layerGroup()
-    const bounds = map.getBounds()
-    const south = Math.floor(bounds.getSouth())
-    const north = Math.ceil(bounds.getNorth())
-    const west = Math.floor(bounds.getWest())
-    const east = Math.ceil(bounds.getEast())
 
-    // Draw grid cells as polygons with colors
-    for (let lat = south; lat < north; lat += spacing) {
-      for (let lon = west; lon < east; lon += spacing) {
-        const stationCount = countStationsInCell(lat, lon)
-        const cellColor = getCellColor(stationCount)
+    const cpues = gridCells.map((cell) => cell.cpue).filter((value) => isFinite(value) && value > 0)
+    const p10 = percentile(cpues, 0.1)
+    const p90 = percentile(cpues, 0.9)
 
-        const cellBounds = [
-          [lat, lon],
-          [lat + spacing, lon],
-          [lat + spacing, lon + spacing],
-          [lat, lon + spacing],
-        ] as [number, number][]
+    for (const cell of gridCells) {
+      const intensity = normalizeCpue(cell.cpue, p10, p90)
+      const fillColor = intensity >= 0.82
+        ? '#ff7b6b'
+        : intensity >= 0.68
+          ? '#ffbd7a'
+          : intensity >= 0.5
+            ? '#ffe68d'
+            : intensity >= 0.32
+              ? '#77e2d0'
+              : '#9fddff'
 
-        const cell = L.polygon(cellBounds, {
-          fillColor: cellColor,
-          fillOpacity: cellColor === 'transparent' ? 0 : 0.4,
-          color: color,
-          weight: weight,
-          opacity: opacity,
-          dashArray: '4,4',
-        })
-
-        group.addLayer(cell)
-      }
-    }
-
-    // Draw grid lines
-    for (let lat = south; lat <= north; lat += spacing) {
-      const line = L.polyline(
+      const polygon = L.polygon(
         [
-          [lat, west],
-          [lat, east],
+          [cell.latMin, cell.lonMin],
+          [cell.latMin, cell.lonMax],
+          [cell.latMax, cell.lonMax],
+          [cell.latMax, cell.lonMin],
         ],
-        { color, weight, opacity, dashArray: '4,4' }
+        {
+          fillColor,
+          fillOpacity: 0.12 + intensity * 0.3,
+          color: borderColor,
+          weight: 0.8 + intensity * 0.8,
+          opacity: borderOpacity,
+        }
       )
-      group.addLayer(line)
-    }
 
-    for (let lon = west; lon <= east; lon += spacing) {
-      const line = L.polyline(
-        [
-          [south, lon],
-          [north, lon],
-        ],
-        { color, weight, opacity, dashArray: '4,4' }
-      )
-      group.addLayer(line)
+      polygon.bindPopup(`
+        <div class="p-1 min-w-[180px]">
+          <div style="font-weight:600;margin-bottom:6px;">Cell ${cell.id}</div>
+          <div>CPUE: ${cell.cpue.toFixed(2)} kg/hr</div>
+          <div>Hauls: ${cell.count}</div>
+          <div>Catch: ${cell.totalCatch.toFixed(2)} kg</div>
+          <div>Effort: ${cell.totalEffort.toFixed(2)} hr</div>
+        </div>
+      `)
+      group.addLayer(polygon)
     }
 
     group.addTo(map)
 
-    const handleMove = () => {
-      group.clearLayers()
-      const b = map.getBounds()
-      const s = Math.floor(b.getSouth())
-      const n = Math.ceil(b.getNorth())
-      const w = Math.floor(b.getWest())
-      const e = Math.ceil(b.getEast())
-
-      // Redraw grid cells
-      for (let la = s; la < n; la += spacing) {
-        for (let lo = w; lo < e; lo += spacing) {
-          const stationCount = countStationsInCell(la, lo)
-          const cellColor = getCellColor(stationCount)
-
-          const cellBounds = [
-            [la, lo],
-            [la + spacing, lo],
-            [la + spacing, lo + spacing],
-            [la, lo + spacing],
-          ] as [number, number][]
-
-          const cell = L.polygon(cellBounds, {
-            fillColor: cellColor,
-            fillOpacity: cellColor === 'transparent' ? 0 : 0.4,
-            color: color,
-            weight: weight,
-            opacity: opacity,
-            dashArray: '4,4',
-          })
-
-          group.addLayer(cell)
-        }
-      }
-
-      // Redraw grid lines
-      for (let la = s; la <= n; la += spacing) {
-        const line = L.polyline(
-          [
-            [la, w],
-            [la, e],
-          ],
-          { color, weight, opacity, dashArray: '4,4' }
-        )
-        group.addLayer(line)
-      }
-      for (let lo = w; lo <= e; lo += spacing) {
-        const line = L.polyline(
-          [
-            [s, lo],
-            [n, lo],
-          ],
-          { color, weight, opacity, dashArray: '4,4' }
-        )
-        group.addLayer(line)
-      }
-    }
-
-    map.on('moveend zoomend', handleMove)
-
     return () => {
-      map.off('moveend zoomend', handleMove)
       map.removeLayer(group)
     }
-  }, [map, spacing, color, weight, opacity, stationData])
+  }, [map, gridCells, borderColor, borderOpacity])
 
   return null
 }

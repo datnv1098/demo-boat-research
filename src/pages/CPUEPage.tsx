@@ -2,41 +2,132 @@ import { useEffect, useMemo, useState } from 'react'
 import { Activity } from 'lucide-react'
 import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { loadRealData } from '../data/dataAdapter'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
 
+const API_BASE = 'http://localhost:3000'
+
+async function fetchAllPages(path: string, limit = 500): Promise<any[]> {
+  const rows: any[] = []
+  let page = 1
+  while (true) {
+    const sep = path.includes('?') ? '&' : '?'
+    const res = await fetch(`${API_BASE}${path}${sep}page=${page}&limit=${limit}`)
+    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+    const json = await res.json()
+    const data = Array.isArray(json.data) ? json.data : []
+    rows.push(...data)
+    if (data.length < limit) break
+    if (json.total != null && rows.length >= Number(json.total)) break
+    page += 1
+  }
+  return rows
+}
+
+function normalizeZone(mainArea: string): string {
+  const v = String(mainArea || '').toUpperCase().trim()
+  if (!v) return 'N/A'
+  if (v === 'AND') return 'ADM'
+  if (v === 'ADM' || v.includes('ANDAMAN')) return 'ADM'
+  if (v === 'GOT' || v.includes('GULF')) return 'GOT'
+  return v
+}
+
+function parseSurveyDate(raw?: string): Date | null {
+  if (!raw) return null
+  const s = String(raw).trim()
+  if (!s) return null
+
+  // Support YYYY-MM-DD and full ISO date-time strings.
+  const isoDate = /^\d{4}-\d{2}-\d{2}/.test(s)
+  if (isoDate) {
+    const d = new Date(s)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  // Support M-D-YYYY / MM-DD-YYYY often found in original survey sources.
+  const mdY = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (mdY) {
+    const month = Number(mdY[1])
+    const day = Number(mdY[2])
+    const year = Number(mdY[3])
+    const d = new Date(year, month - 1, day)
+    return isNaN(d.getTime()) ? null : d
+  }
+
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
+interface CpueRecord {
+  link: string
+  cpue: number
+  totalCatch: number
+  towMin: number
+  area: string
+  zone: string
+  depth: number
+  depthClass: string
+  yearNum: number
+  monthNum: number
+  quarterNum: number
+  monthLabel: string
+  quarterLabel: string
+  speciesSet: string[]
+  station: string
+}
+
 export default function CPUEPage() {
-  const [data, setData] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [effortRows, setEffortRows] = useState<any[]>([])
+  const [catchRows, setCatchRows] = useState<any[]>([])
   const [error, setError] = useState<string | null>(null)
   const { t, lang } = useI18n()
 
   const [area, setArea] = useState<string>('all')
   const [zone, setZone] = useState<string>('all')
   const [depthClass, setDepthClass] = useState<string>('all')
-  // removed month filter per request
-  const [periodMode] = useState<'month' | 'quarter'>('quarter')
-  const [quarter, setQuarter] = useState<string>('all')
+  const [yearFilter, setYearFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<'previous' | 'month'>('previous')
+  const [valueFilter, setValueFilter] = useState<string>('all')
 
   useEffect(() => {
-    loadRealData()
-      .then(setData)
-      .catch((e) => setError(String(e)))
+    let cancelled = false
+    async function loadFromApi() {
+      setLoading(true)
+      setError(null)
+      try {
+        const healthRes = await fetch(`${API_BASE}/health`)
+        const health = await healthRes.json()
+        if (!healthRes.ok || health.db !== 'connected') {
+          throw new Error('Backend/Database is not ready')
+        }
+
+        const [effort, catchData] = await Promise.all([
+          fetchAllPages('/api/tables/effort2'),
+          fetchAllPages('/api/tables/catch2'),
+        ])
+
+        if (!cancelled) {
+          setEffortRows(effort)
+          setCatchRows(catchData)
+        }
+      } catch (e) {
+        if (!cancelled) setError(String(e))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    loadFromApi()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const { headerRows, catchRows } = useMemo(() => {
-    if (!data) return { headerRows: [], catchRows: [] }
-    const lower: Record<string, any> = {}
-    Object.keys(data).forEach((k) => (lower[k.toLowerCase()] = data[k]))
-    return {
-      headerRows: Array.isArray(lower['header']) ? lower['header'] : [],
-      catchRows: Array.isArray(lower['catch']) ? lower['catch'] : [],
-    }
-  }, [data])
-
   function toMonthLabel(dateStr?: string) {
-    if (!dateStr) return 'N/A'
-    const d = new Date(dateStr)
+    const d = parseSurveyDate(dateStr)
+    if (!d) return 'N/A'
     const m = d.getMonth()
     const year = d.getFullYear()
     const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
@@ -46,8 +137,8 @@ export default function CPUEPage() {
   }
 
   function toQuarterLabel(dateStr?: string) {
-    if (!dateStr) return 'N/A'
-    const d = new Date(dateStr)
+    const d = parseSurveyDate(dateStr)
+    if (!d) return 'N/A'
     const q = Math.floor(d.getMonth() / 3) + 1
     const year = d.getFullYear()
     return `Q${q} ${year}`
@@ -60,75 +151,93 @@ export default function CPUEPage() {
     return '>40'
   }
 
-  const cpueRecords = useMemo(() => {
-    if (!headerRows.length) return []
-    const linkToHeader = new Map<string, any>()
-    for (const h of headerRows) linkToHeader.set(String(h?.Link), h)
+  const cpueRecords = useMemo<CpueRecord[]>(() => {
+    if (!effortRows.length) return []
+    const sampleToEffort = new Map<string, any>()
+    for (const e of effortRows) sampleToEffort.set(String(e?.sample_id || ''), e)
     const linkToCatchWeight = new Map<string, number>()
     const linkSpeciesSet = new Map<string, Set<string>>()
     for (const c of catchRows) {
-      const link = String(c?.Link)
+      const link = String(c?.sample_id || '')
       const w = Number(c?.total_weight) || 0
       linkToCatchWeight.set(link, (linkToCatchWeight.get(link) || 0) + w)
-      const spp = String(c?.btscodename || 'ALL')
+      const spp = String(c?.species_id || 'ALL')
       if (!linkSpeciesSet.has(link)) linkSpeciesSet.set(link, new Set<string>())
       linkSpeciesSet.get(link)!.add(spp)
     }
-    const list: any[] = []
-    for (const [link, h] of linkToHeader.entries()) {
-      const towMin = Number(h?.Tow)
+    const list: CpueRecord[] = []
+    for (const [link, h] of sampleToEffort.entries()) {
+      const d = parseSurveyDate(String(h?.sample_date_eng))
+      if (!d) continue
+      const towMin = Number(h?.tow_time)
       const hours = isFinite(towMin) ? towMin / 60 : NaN
       const totalCatch = linkToCatchWeight.get(link) || 0
       const cpue = isFinite(hours) && hours > 0 ? totalCatch / hours : NaN
+      const monthNum = d.getMonth() + 1
+      const yearNum = d.getFullYear()
+      const quarterNum = Math.floor((monthNum - 1) / 3) + 1
       list.push({
         link,
         cpue,
         totalCatch,
         towMin,
-        area: h?.Area || 'N/A',
-        zone: h?.Zone || 'N/A',
-        depth: Number(h?.Depth),
-        depthClass: depthToClass(Number(h?.Depth)),
-        monthLabel: toMonthLabel(String(h?.Date)),
-        quarterLabel: toQuarterLabel(String(h?.Date)),
+        area: h?.rv_area != null ? String(h.rv_area) : 'N/A',
+        zone: normalizeZone(String(h?.main_area || '')),
+        depth: Number(h?.depth),
+        depthClass: depthToClass(Number(h?.depth)),
+        yearNum,
+        monthNum,
+        quarterNum,
+        monthLabel: toMonthLabel(String(h?.sample_date_eng)),
+        quarterLabel: toQuarterLabel(String(h?.sample_date_eng)),
         speciesSet: Array.from(linkSpeciesSet.get(link) || []),
-        station: h?.Station || '-',
+        station: h?.station || '-',
       })
     }
-    return list.filter((r) => isFinite(r.cpue))
-  }, [headerRows, catchRows, lang])
+    return list.filter((r: CpueRecord) => isFinite(r.cpue))
+  }, [effortRows, catchRows, lang])
 
   const filterOptions = useMemo(() => {
-    const quarters = Array.from(new Set(cpueRecords.map((r) => r.quarterLabel))).sort()
-    const areas = Array.from(new Set(cpueRecords.map((r) => r.area))).sort()
-    const zones = Array.from(new Set(cpueRecords.map((r) => r.zone))).sort()
+    const years = Array.from(new Set<string>(cpueRecords.map((r: CpueRecord) => String(r.yearNum)))).sort()
+    const areas = Array.from(new Set<string>(cpueRecords.map((r: CpueRecord) => r.area))).sort()
+    const zones = Array.from(new Set<string>(cpueRecords.map((r: CpueRecord) => r.zone))).sort()
     const depthClasses = ['<20', '20–40', '>40']
-    return { quarters, areas, zones, depthClasses }
+    return { years, areas, zones, depthClasses }
   }, [cpueRecords])
 
-  const filtered = useMemo(() => {
-    return cpueRecords.filter((r) => (
+  const valueOptions = useMemo(() => {
+    if (typeFilter === 'previous') return ['1', '2', '3', '4']
+    return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+  }, [typeFilter])
+
+  useEffect(() => {
+    setValueFilter('all')
+  }, [typeFilter])
+
+  const filtered = useMemo<CpueRecord[]>(() => {
+    return cpueRecords.filter((r: CpueRecord) => (
+      (yearFilter === 'all' || String(r.yearNum) === yearFilter) &&
+      (valueFilter === 'all' || (typeFilter === 'previous' ? r.quarterNum === Number(valueFilter) : r.monthNum === Number(valueFilter))) &&
       (area === 'all' || r.area === area) &&
       (zone === 'all' || r.zone === zone) &&
-      (depthClass === 'all' || r.depthClass === depthClass) &&
-      (quarter === 'all' || r.quarterLabel === quarter)
+      (depthClass === 'all' || r.depthClass === depthClass)
     ))
-  }, [cpueRecords, quarter, area, zone, depthClass])
+  }, [cpueRecords, yearFilter, typeFilter, valueFilter, area, zone, depthClass])
 
   const stats = useMemo(() => {
-    const values = filtered.map((r) => r.cpue).sort((a, b) => a - b)
+    const values = filtered.map((r: CpueRecord) => r.cpue).sort((a: number, b: number) => a - b)
     const n = values.length
     if (!n) return { n: 0 }
-    const mean = values.reduce((a, b) => a + b, 0) / n
+    const mean = values.reduce((a: number, b: number) => a + b, 0) / n
     const median = values[Math.floor(n / 2)]
-    const variance = values.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / n
+    const variance = values.reduce((a: number, v: number) => a + Math.pow(v - mean, 2), 0) / n
     const stddev = Math.sqrt(variance)
     // P95
     const p95 = values[Math.floor(n * 0.95)]
     return { n, mean, median, stddev, p95 }
   }, [filtered])
 
-  const withOutlier = useMemo(() => filtered.map((r) => ({ ...r, outlier: stats.p95 != null ? r.cpue > stats.p95 : false })), [filtered, stats])
+  const withOutlier = useMemo(() => filtered.map((r: CpueRecord) => ({ ...r, outlier: stats.p95 != null ? r.cpue > stats.p95 : false })), [filtered, stats])
 
   const byMonth = useMemo(() => {
     const map = new Map<string, { month: string; cpue: number; count: number; sortKey: string }>()
@@ -140,7 +249,7 @@ export default function CPUEPage() {
       const monthNames = lang === 'th'
         ? ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
         : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-      const monthIndex = monthNames.findIndex(m => key.includes(m))
+      const monthIndex = monthNames.findIndex((m: string) => key.includes(m))
       const sortKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}`
 
       const cur = map.get(key) || { month: key, cpue: 0, count: 0, sortKey }
@@ -173,27 +282,20 @@ export default function CPUEPage() {
 
   // CPUE by Area and Period - for area comparison chart
   const byAreaAndPeriod = useMemo(() => {
-    // Get all unique areas and quarters from unfiltered data (except area filter)
-    const unfilteredByArea = cpueRecords.filter((r) => (
+    // Keep area comparison by ignoring selected area while keeping other active filters.
+    const unfilteredByArea = cpueRecords.filter((r: CpueRecord) => (
+      (yearFilter === 'all' || String(r.yearNum) === yearFilter) &&
+      (valueFilter === 'all' || (typeFilter === 'previous' ? r.quarterNum === Number(valueFilter) : r.monthNum === Number(valueFilter))) &&
       (zone === 'all' || r.zone === zone) &&
-      (depthClass === 'all' || r.depthClass === depthClass) &&
-      (quarter === 'all' || r.quarterLabel === quarter)
+      (depthClass === 'all' || r.depthClass === depthClass)
     ))
 
-    const areas = Array.from(new Set(unfilteredByArea.map(r => r.area))).sort()
+    const areas = Array.from(new Set<string>(unfilteredByArea.map((r: CpueRecord) => r.area))).sort()
 
-    // Get quarters and sort them chronologically
-    const quarterSet = new Set(unfilteredByArea.map(r => r.quarterLabel))
-    const quarters = Array.from(quarterSet).sort((a, b) => {
-      // Extract Q and year for sorting: "Q1 2024" -> "2024-1"
-      const matchA = a.match(/Q(\d+)\s+(\d{4})/)
-      const matchB = b.match(/Q(\d+)\s+(\d{4})/)
-      const sortKeyA = matchA ? `${matchA[2]}-${matchA[1]}` : a
-      const sortKeyB = matchB ? `${matchB[2]}-${matchB[1]}` : b
-      return sortKeyA.localeCompare(sortKeyB)
-    })
+    const periodSet = new Set<string>(unfilteredByArea.map((r: CpueRecord) => (typeFilter === 'month' ? r.monthLabel : r.quarterLabel)))
+    const periods = Array.from(periodSet).sort((a: string, b: string) => a.localeCompare(b))
 
-    // Create a map structure: area -> quarter -> {cpue, count}
+    // Create a map structure: area -> period -> {cpue, count}
     const dataMap = new Map<string, Map<string, { cpue: number; count: number }>>()
 
     for (const r of unfilteredByArea) {
@@ -201,26 +303,27 @@ export default function CPUEPage() {
         dataMap.set(r.area, new Map())
       }
       const areaMap = dataMap.get(r.area)!
-      const cur = areaMap.get(r.quarterLabel) || { cpue: 0, count: 0 }
+      const periodKey = typeFilter === 'month' ? r.monthLabel : r.quarterLabel
+      const cur = areaMap.get(periodKey) || { cpue: 0, count: 0 }
       cur.cpue += r.cpue
       cur.count += 1
-      areaMap.set(r.quarterLabel, cur)
+      areaMap.set(periodKey, cur)
     }
 
     // Convert to series format for ApexCharts
-    const series = areas.map(area => {
+    const series = areas.map((area: string) => {
       const areaData = dataMap.get(area)!
       return {
         name: area,
-        data: quarters.map(q => {
+        data: periods.map((q: string) => {
           const qData = areaData.get(q)
           return qData && qData.count ? qData.cpue / qData.count : null
         })
       }
     })
 
-    return { series, categories: quarters }
-  }, [cpueRecords, zone, depthClass, quarter])
+    return { series, categories: periods }
+  }, [cpueRecords, yearFilter, typeFilter, valueFilter, zone, depthClass])
 
   const byDepth = useMemo(() => {
     const map = new Map<string, { cls: string; cpue: number; count: number }>()
@@ -236,7 +339,7 @@ export default function CPUEPage() {
 
   // Histogram of CPUE distribution (based on filtered records)
   const histData = useMemo(() => {
-    const values = filtered.map((r) => r.cpue)
+    const values = filtered.map((r: CpueRecord) => r.cpue)
     if (!values.length) return [] as { bin: string; count: number }[]
     const min = Math.min(...values)
     const max = Math.max(...values)
@@ -256,47 +359,67 @@ export default function CPUEPage() {
     <div>
       <Header title={t('cpue.title')} desc={t('cpue.desc')} icon={<Activity className="h-6 w-6" />} sticky={true} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
-      {data && (
+      {loading && !error && <div className="text-sm text-muted-foreground">{t('loading.api')}</div>}
+      {!loading && !error && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div>
-              <Label>Quarter</Label>
-              <Select defaultValue={quarter} onValueChange={setQuarter}>
+              <Label>{t('filter.year')}</Label>
+              <Select value={yearFilter} onValueChange={setYearFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {filterOptions.quarters.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {filterOptions.years.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Area</Label>
+              <Label>{t('filter.type')}</Label>
+              <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="previous">{t('filter.type.previous')}</SelectItem>
+                  <SelectItem value="month">{t('filter.type.month')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.value')}</Label>
+              <Select value={valueFilter} onValueChange={setValueFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {valueOptions.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.area')}</Label>
               <Select defaultValue={area} onValueChange={setArea}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {filterOptions.areas.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {filterOptions.areas.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Zone</Label>
+              <Label>{t('hot.zone')}</Label>
               <Select defaultValue={zone} onValueChange={setZone}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {filterOptions.zones.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {filterOptions.zones.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Depth</Label>
+              <Label>{t('hot.depth')}</Label>
               <Select defaultValue={depthClass} onValueChange={setDepthClass}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  {filterOptions.depthClasses.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {filterOptions.depthClasses.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -304,14 +427,14 @@ export default function CPUEPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">CPUE by Period</div>
+              <div className="text-sm font-medium mb-2">{t('cpue.chart.byPeriod')}</div>
               <div style={{ height: 260 }}>
                 <Chart
                   type="line"
                   height={260}
                   series={[{
                     name: 'CPUE',
-                    data: (periodMode === 'month' ? byMonth : byQuarter).map(r => r.cpue)
+                    data: (typeFilter === 'month' ? byMonth : byQuarter).map((r: { cpue: number }) => r.cpue)
                   }]}
                   options={{
                     chart: {
@@ -349,8 +472,8 @@ export default function CPUEPage() {
                       },
                     },
                     xaxis: {
-                      categories: (periodMode === 'month' ? byMonth : byQuarter).map(r => {
-                        if (periodMode === 'month') {
+                      categories: (typeFilter === 'month' ? byMonth : byQuarter).map((r: { month?: string; quarter?: string; cpue: number }) => {
+                        if (typeFilter === 'month') {
                           return (r as { month: string; cpue: number }).month
                         } else {
                           return (r as { quarter: string; cpue: number }).quarter
@@ -399,14 +522,14 @@ export default function CPUEPage() {
               </div>
             </div>
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">CPUE by Depth class</div>
+              <div className="text-sm font-medium mb-2">{t('cpue.chart.byDepth')}</div>
               <div style={{ height: 260 }}>
                 <Chart
                   type="bar"
                   height={260}
                   series={[{
                     name: 'CPUE',
-                    data: byDepth.map(r => r.cpue)
+                    data: byDepth.map((r: { cpue: number }) => r.cpue)
                   }]}
                   options={{
                     chart: {
@@ -428,7 +551,7 @@ export default function CPUEPage() {
                       show: false
                     },
                     xaxis: {
-                      categories: byDepth.map(r => r.cls),
+                      categories: byDepth.map((r: { cls: string }) => r.cls),
                       labels: {
                         style: {
                           fontSize: '12px',
@@ -487,14 +610,14 @@ export default function CPUEPage() {
           </div>
 
           <div className="rounded-xl border bg-background p-3">
-            <div className="text-sm font-medium mb-2">CPUE Distribution (Histogram)</div>
+            <div className="text-sm font-medium mb-2">{t('cpue.chart.distribution')}</div>
             <div style={{ height: 320 }}>
               <Chart
                 type="bar"
                 height={320}
                 series={[{
                   name: 'Count',
-                  data: histData.map(r => r.count)
+                    data: histData.map((r: { count: number }) => r.count)
                 }]}
                 options={{
                   chart: {
@@ -516,7 +639,7 @@ export default function CPUEPage() {
                     show: false
                   },
                   xaxis: {
-                    categories: histData.map(r => r.bin),
+                    categories: histData.map((r: { bin: string }) => r.bin),
                     labels: {
                       style: {
                         fontSize: '11px',
@@ -576,7 +699,7 @@ export default function CPUEPage() {
           </div>
 
           <div className="rounded-xl border bg-background p-3">
-            <div className="text-sm font-medium mb-2">CPUE Comparison by Area</div>
+            <div className="text-sm font-medium mb-2">{t('cpue.chart.byArea')}</div>
             <div style={{ height: 320 }}>
               <Chart
                 type="line"
@@ -669,7 +792,7 @@ export default function CPUEPage() {
           <Table
             columns={["Link", "Area", "Zone", "Depth", "Month", "Tow(min)", "Catch(kg)", "CPUE", "Outlier"]}
             maxHeight={400}
-            rows={withOutlier.slice(0, 100).map((r) => [
+            rows={withOutlier.slice(0, 100).map((r: CpueRecord & { outlier: boolean }) => [
               r.link,
               r.area,
               r.zone,

@@ -1,0 +1,15 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies (including devDependencies for Vite dev server)
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+EXPOSE 5173
+
+# Run Vite in dev mode and bind to all interfaces for Docker access
+CMD ["npm", "run", "dev"]

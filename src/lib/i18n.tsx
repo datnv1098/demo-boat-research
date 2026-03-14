@@ -98,6 +98,59 @@ const translations: Translations = {
   'water.chart.ph': { th: 'pH', en: 'pH' },
   'water.chart.salinity': { th: 'ความเค็ม', en: 'Salinity' },
   'water.top10': { th: 'Top 10 ค่าสูงสุด', en: 'Top 10 Highest Values' },
+  // Shared filter labels
+  'filter.year': { th: 'ปี', en: 'Year' },
+  'filter.type': { th: 'ประเภท', en: 'Type' },
+  'filter.type.previous': { th: 'ก่อนหน้า', en: 'Previous' },
+  'filter.type.month': { th: 'เดือน', en: 'Month' },
+  'filter.value': { th: 'ค่า', en: 'Value' },
+  'filter.area': { th: 'พื้นที่', en: 'Area' },
+  'filter.station': { th: 'สถานี', en: 'Station' },
+  'filter.metric': { th: 'ตัวชี้วัด', en: 'Metric' },
+  'filter.species': { th: 'ชนิดสัตว์น้ำ', en: 'Species' },
+  'filter.search': { th: 'ค้นหา', en: 'Search' },
+  // Loading
+  'loading.api': { th: 'กำลังโหลดข้อมูลจาก API...', en: 'Loading data from API...' },
+  // Hotspot KPI cards
+  'hot.kpi.filteredCpue': { th: 'CPUE ที่กรองแล้ว', en: 'Filtered CPUE' },
+  'hot.kpi.activeCells': { th: 'เซลล์ที่ใช้งาน', en: 'Active cells' },
+  'hot.kpi.hotspotCells': { th: 'เซลล์จุดร้อน', en: 'Hotspot cells' },
+  'hot.kpi.topHotspot': { th: 'จุดร้อนสูงสุด', en: 'Top hotspot' },
+  'hot.kpi.weighted': { th: 'ถ่วงน้ำหนักตามยอดจับ/ความพยายาม', en: 'Weighted by catch/effort' },
+  'hot.kpi.haulFiltered': { th: 'haul ที่กรองแล้ว', en: 'haul filtered' },
+  'hot.kpi.noCell': { th: 'ไม่มีเซลล์จุดร้อน', en: 'No hotspot cell' },
+  // CPUE chart titles
+  'cpue.chart.byPeriod': { th: 'CPUE ตามช่วงเวลา', en: 'CPUE by Period' },
+  'cpue.chart.byDepth': { th: 'CPUE ตามชั้นความลึก', en: 'CPUE by Depth class' },
+  'cpue.chart.distribution': { th: 'การกระจาย CPUE (ฮิสโตแกรม)', en: 'CPUE Distribution (Histogram)' },
+  'cpue.chart.byArea': { th: 'CPUE เปรียบเทียบตามพื้นที่', en: 'CPUE Comparison by Area' },
+  // Dashboard chart titles
+  'dash.chart.topStations': { th: 'สถานีอันดับสูงสุด (CPUE เฉลี่ย)', en: 'Top Stations (Avg CPUE)' },
+  'dash.chart.cpueRange': { th: 'ช่วง CPUE (Min-Max) ตาม', en: 'CPUE Range (Min-Max) by' },
+  'dash.chart.cpueVsDepth': { th: 'เปรียบเทียบ CPUE กับความลึก', en: 'CPUE vs Depth Comparison' },
+  'dash.chart.envBy': { th: 'สิ่งแวดล้อม', en: 'Env' },
+  'dash.chart.envOverview': { th: 'ภาพรวมตัวชี้วัดสิ่งแวดล้อม ตาม', en: 'Environmental Metrics Overview by' },
+  'dash.chart.summary': { th: 'สรุป', en: 'Summary' },
+  // Length chart titles
+  'len.chart.histogram': { th: 'ฮิสโตแกรมความถี่ความยาว', en: 'Length Frequency Histogram' },
+  'len.chart.proxyHistogram': { th: 'ฮิสโตแกรมการกระจายน้ำหนัก (ตัวแทน)', en: 'Weight Distribution Histogram (Proxy)' },
+  'len.chart.lmeanByZone': { th: 'Lmean ตามโซน', en: 'Lmean by Zone' },
+  'len.chart.lmeanByMonth': { th: 'Lmean ตามเดือน', en: 'Lmean by Month' },
+  'len.chart.bioIndices': { th: 'ดัชนีชีววิทยา', en: 'Bio Indices' },
+  'len.chart.details': { th: 'รายละเอียด (100 อันดับแรก)', en: 'Details (Top 100)' },
+  // QC chart titles
+  'ing.chart.status': { th: 'สถานะ QC', en: 'QC Status' },
+  'ing.chart.topIssues': { th: 'ปัญหาหลักตามโซน', en: 'Top Issues by Zone' },
+  // Users page
+  'users.role': { th: 'บทบาท', en: 'Role' },
+  'users.office': { th: 'สำนักงาน', en: 'Office' },
+  'users.filterStatus': { th: 'สถานะ', en: 'Status' },
+  'users.addUser': { th: 'เพิ่มผู้ใช้', en: 'Add User' },
+  'users.loadDemo': { th: 'โหลดข้อมูลตัวอย่าง', en: 'Load Demo' },
+  'users.noUsers': { th: 'ยังไม่มีผู้ใช้ คลิก "โหลดข้อมูลตัวอย่าง" เพื่อสร้าง 50 รายการ', en: 'No users found. Click "Load Demo" to seed 50 demo users.' },
+  'users.placeholder': { th: 'ชื่อหรืออีเมล', en: 'Name or email' },
+  'len.warn.proxyMode': { th: '⚠️ API ยังไม่มีข้อมูล length-bin/freqtext มาตรฐาน กราฟ Length/Bio Indices กำลังทำงานในโหมด proxy จาก total_weight', en: '⚠️ API does not yet have standard length-bin/freqtext data. Length/Bio Indices charts are running in proxy mode from total_weight.' },
+  'len.warn.juvenile': { th: '⚠️ สัดส่วนปลาวัยอ่อนสูง (≥60%)', en: '⚠️ High juvenile ratio (≥60%)' },
 }
 
 type I18nContextValue = {

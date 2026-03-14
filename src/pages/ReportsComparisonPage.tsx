@@ -2,40 +2,154 @@ import { useEffect, useMemo, useState } from 'react'
 import { BarChart2 } from 'lucide-react'
 import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
 import { useI18n } from '../lib/i18n'
-import { loadRealData } from '../data/dataAdapter'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
 import { GaugeChart } from '../components/GaugeChart'
 
+const API_BASE = 'http://localhost:3000'
+
+async function fetchAllPages(path: string, limit = 500): Promise<any[]> {
+  const rows: any[] = []
+  let page = 1
+  while (true) {
+    const sep = path.includes('?') ? '&' : '?'
+    const res = await fetch(`${API_BASE}${path}${sep}page=${page}&limit=${limit}`)
+    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+    const json = await res.json()
+    const data = Array.isArray(json.data) ? json.data : []
+    rows.push(...data)
+    if (data.length < limit) break
+    if (json.total != null && rows.length >= Number(json.total)) break
+    page += 1
+  }
+  return rows
+}
+
+function normalizeRegion(mainArea: string): 'ADM' | 'GOT' | null {
+  const v = String(mainArea || '').toUpperCase().trim()
+  if (!v) return null
+  if (v === 'AND') return 'ADM'
+  if (v === 'ADM' || v.includes('ANDAMAN')) return 'ADM'
+  if (v === 'GOT' || v.includes('GULF')) return 'GOT'
+  return null
+}
+
+function parseSurveyDate(raw?: string): Date | null {
+  if (!raw) return null
+  const s = String(raw).trim()
+  if (!s) return null
+  const isoDate = /^\d{4}-\d{2}-\d{2}/.test(s)
+  if (isoDate) {
+    const d = new Date(s)
+    return isNaN(d.getTime()) ? null : d
+  }
+  const mdY = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/)
+  if (mdY) {
+    const month = Number(mdY[1])
+    const day = Number(mdY[2])
+    const year = Number(mdY[3])
+    const d = new Date(year, month - 1, day)
+    return isNaN(d.getTime()) ? null : d
+  }
+  const d = new Date(s)
+  return isNaN(d.getTime()) ? null : d
+}
+
+function toDateKey(raw?: string): string {
+  const d = parseSurveyDate(raw)
+  if (!d) return ''
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+interface OverviewRecord {
+  link: string
+  station: string
+  date: string
+  yearNum: number
+  monthNum: number
+  quarterNum: number
+  monthLabel: string
+  quarterLabel: string
+  yearLabel: string
+  cpue: number
+  depth: number
+  temp: number
+  sal: number
+  do: number
+  ph: number
+}
+
+interface OverviewSeriesRow {
+  period: string
+  cpue_mean: number
+  cpue_min: number
+  cpue_max: number
+  cpue_cv: number
+  depth_mean: number
+  temp_mean: number
+  sal_mean: number
+  do_mean: number
+  ph_mean: number
+}
+
 export default function ReportsComparisonPage() {
-  const [data, setData] = useState<any | null>(null)
+  const [effortRows, setEffortRows] = useState<any[]>([])
+  const [catchRows, setCatchRows] = useState<any[]>([])
+  const [envRows, setEnvRows] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { t, lang } = useI18n()
 
-  const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('quarter')
+  const [yearFilter, setYearFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<'previous' | 'month'>('previous')
+  const [valueFilter, setValueFilter] = useState<string>('all')
   const [station, setStation] = useState<string>('all')
   const [metric, setMetric] = useState<'cpue' | 'depth' | 'temp' | 'sal' | 'do' | 'ph' | 'lmean' | 'lfi'>('cpue')
 
   useEffect(() => {
-    loadRealData()
-      .then(setData)
-      .catch((e) => setError(String(e)))
-  }, [])
+    let cancelled = false
 
-  const { headerRows, catchRows, waterQlRows } = useMemo(() => {
-    if (!data) return { headerRows: [], catchRows: [], waterQlRows: [] }
-    const lower: Record<string, any> = {}
-    Object.keys(data).forEach((k) => (lower[k.toLowerCase()] = data[k]))
-    return {
-      headerRows: Array.isArray(lower['header']) ? lower['header'] : [],
-      catchRows: Array.isArray(lower['catch']) ? lower['catch'] : [],
-      waterQlRows: Array.isArray(lower['water_ql']) ? lower['water_ql'] : [],
+    async function loadFromApi() {
+      setLoading(true)
+      setError(null)
+      try {
+        const healthRes = await fetch(`${API_BASE}/health`)
+        const health = await healthRes.json()
+        if (!healthRes.ok || health.db !== 'connected') {
+          throw new Error('Backend/Database is not ready')
+        }
+
+        const [effort, catchData, env] = await Promise.all([
+          fetchAllPages('/api/tables/effort2', 500),
+          fetchAllPages('/api/tables/catch2', 500),
+          fetchAllPages('/api/environment/daily?start_date=2022-01-01&end_date=2023-12-31', 1000),
+        ])
+
+        if (!cancelled) {
+          setEffortRows(effort)
+          setCatchRows(catchData)
+          setEnvRows(env)
+        }
+      } catch (e) {
+        if (!cancelled) setError(String(e))
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  }, [data])
+
+    loadFromApi()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function toMonthLabel(dateStr?: string) {
     if (!dateStr) return 'N/A'
-    const d = new Date(dateStr)
+    const d = parseSurveyDate(dateStr)
+    if (!d) return 'N/A'
     const m = d.getMonth()
     const year = d.getFullYear()
     const thMonths = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']
@@ -44,77 +158,111 @@ export default function ReportsComparisonPage() {
   }
   function toQuarterLabel(dateStr?: string) {
     if (!dateStr) return 'N/A'
-    const d = new Date(dateStr)
+    const d = parseSurveyDate(dateStr)
+    if (!d) return 'N/A'
     const q = Math.floor(d.getMonth() / 3) + 1
     const year = d.getFullYear()
     return `Q${q} ${year}`
   }
   function toYearLabel(dateStr?: string) {
     if (!dateStr) return 'N/A'
-    const d = new Date(dateStr)
+    const d = parseSurveyDate(dateStr)
+    if (!d) return 'N/A'
     return String(d.getFullYear())
   }
 
   // Precompute per-link CPUE and join env
-  const records = useMemo(() => {
-    if (!headerRows.length) return []
-    const linkToCatchWeight: Record<string, number> = {}
+  const records = useMemo<OverviewRecord[]>(() => {
+    if (!effortRows.length) return []
+
+    const sampleToCatchWeight: Record<string, number> = {}
     for (const c of catchRows) {
-      const link = String(c?.Link)
+      const sampleId = String(c?.sample_id || '')
+      if (!sampleId) continue
       const w = Number(c?.total_weight) || 0
-      linkToCatchWeight[link] = (linkToCatchWeight[link] || 0) + w
+      sampleToCatchWeight[sampleId] = (sampleToCatchWeight[sampleId] || 0) + w
     }
-    const waterKeyMap: Record<string, any> = {}
-    for (const w of waterQlRows) {
-      // Normalize station: convert both "001" and "1" to number for matching
-      const stationNum = String(w?.station).replace(/^0+/, '') || String(w?.station)
-      const key = `${stationNum}_${String(w?.year)}_${String(w?.month)}`
-      waterKeyMap[key] = w
+
+    const envKeyMap: Record<string, any> = {}
+    for (const e of envRows) {
+      const dateKey = toDateKey(String(e?.date || ''))
+      const region = String(e?.region_code || '').toUpperCase()
+      if (!dateKey || !region) continue
+      envKeyMap[`${dateKey}|${region}`] = e
     }
-    const out: any[] = []
-    for (const h of headerRows) {
-      const link = String(h?.Link)
-      const towMin = Number(h?.Tow)
+
+    const out: OverviewRecord[] = []
+    for (const h of effortRows) {
+      const sampleId = String(h?.sample_id || '')
+      const towMin = Number(h?.tow_time)
       const hours = isFinite(towMin) ? towMin / 60 : NaN
-      const cpue = isFinite(hours) && hours > 0 ? (linkToCatchWeight[link] || 0) / hours : NaN
-      const date = String(h?.Date)
-      const station = String(h?.Station || '-')
-      // Normalize station: remove leading zeros for matching
-      const stationNum = station.replace(/^0+/, '') || station
-      const depth = Number(h?.Depth)
-      const d = new Date(date)
-      const waterKey = `${stationNum}_${d.getFullYear()}_${d.getMonth() + 1}`
-      const w = waterKeyMap[waterKey]
+      const cpue = isFinite(hours) && hours > 0 ? (sampleToCatchWeight[sampleId] || 0) / hours : NaN
+      const date = String(h?.sample_date_eng || '')
+      const surveyDate = parseSurveyDate(date)
+      const station = String(h?.station || '-')
+      const depth = Number(h?.depth)
+      const region = normalizeRegion(String(h?.main_area || ''))
+      const envKey = `${toDateKey(date)}|${region || ''}`
+      const w = envKeyMap[envKey]
+
+      if (!surveyDate) continue
+      const yearNum = surveyDate.getFullYear()
+      const monthNum = surveyDate.getMonth() + 1
+      const quarterNum = Math.floor((monthNum - 1) / 3) + 1
+
       out.push({
-        link,
+        link: sampleId,
         station,
         date,
+        yearNum,
+        monthNum,
+        quarterNum,
         monthLabel: toMonthLabel(date),
         quarterLabel: toQuarterLabel(date),
         yearLabel: toYearLabel(date),
         cpue,
         depth,
-        temp: w ? Number(w?.Temp_surface) : NaN,
-        sal: w ? Number(w?.Salinity_surface) : NaN,
-        do: w ? Number(w?.DO_surface) : NaN,
-        ph: w ? Number(w?.pH_surface) : NaN,
+        temp: w ? Number(w?.temp_c) : NaN,
+        sal: w ? Number(w?.salinity_psu) : NaN,
+        do: w ? Number(w?.do_mg_l_approx) : NaN,
+        ph: w ? Number(w?.ph_total_scale) : NaN,
       })
     }
-    return out.filter((r) => isFinite(r.cpue))
-  }, [headerRows, catchRows, waterQlRows, lang])
+    return out.filter((r: OverviewRecord) => isFinite(r.cpue))
+  }, [effortRows, catchRows, envRows, lang])
 
   const filterOptions = useMemo(() => {
-    const stations = Array.from(new Set(records.map((r) => r.station))).sort()
-    return { stations }
+    const stations = Array.from(new Set(records.map((r: OverviewRecord) => r.station))).sort()
+    const years = Array.from(new Set(records.map((r: OverviewRecord) => String(r.yearNum)))).sort()
+    return { stations, years }
   }, [records])
 
+  const valueOptions = useMemo(() => {
+    if (typeFilter === 'previous') return ['1', '2', '3', '4']
+    return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+  }, [typeFilter])
+
   const filtered = useMemo(() => {
-    return records.filter((r) => station === 'all' || r.station === station)
-  }, [records, station])
+    return records.filter((r: OverviewRecord) => {
+      const passStation = station === 'all' || r.station === station
+      const passYear = yearFilter === 'all' || String(r.yearNum) === yearFilter
+      const passTypeValue =
+        valueFilter === 'all'
+          ? true
+          : typeFilter === 'previous'
+          ? r.quarterNum === Number(valueFilter)
+          : r.monthNum === Number(valueFilter)
+      return passStation && passYear && passTypeValue
+    })
+  }, [records, station, yearFilter, typeFilter, valueFilter])
+
+  useEffect(() => {
+    setValueFilter('all')
+  }, [typeFilter])
 
   // Aggregate by period
-  const series = useMemo(() => {
-    const keyOf = (r: any) => (period === 'month' ? r.monthLabel : period === 'quarter' ? r.quarterLabel : r.yearLabel)
+  const series = useMemo<OverviewSeriesRow[]>(() => {
+    const keyOf = (r: OverviewRecord) => (typeFilter === 'month' ? r.monthLabel : r.quarterLabel)
     const map: Record<string, { key: string; cpue: number[]; depth: number[]; temp: number[]; sal: number[]; do: number[]; ph: number[] }> = {}
     for (const r of filtered) {
       const k = keyOf(r)
@@ -137,13 +285,13 @@ export default function ReportsComparisonPage() {
       return { mean, min, max, cv }
     }
     
-    // Sort chronologically based on period type
+    // Sort chronologically based on selected type
     const getSortKey = (key: string) => {
-      if (period === 'quarter') {
+      if (typeFilter === 'previous') {
         // Extract Q and year for sorting: "Q1 2024" -> "2024-1"
         const match = key.match(/Q(\d+)\s+(\d{4})/)
         return match ? `${match[2]}-${match[1]}` : key
-      } else if (period === 'month') {
+      } else {
         // Extract month and year for sorting
         const dateMatch = key.match(/(\d{4})/)
         const year = dateMatch ? dateMatch[1] : '0000'
@@ -152,13 +300,10 @@ export default function ReportsComparisonPage() {
           : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
         const monthIndex = monthNames.findIndex(m => key.includes(m))
         return `${year}-${String(monthIndex + 1).padStart(2, '0')}`
-      } else {
-        // Year - just return as is
-        return key
       }
     }
     
-    const rows = Object.values(map)
+    const rows: OverviewSeriesRow[] = Object.values(map)
       .sort((a, b) => getSortKey(a.key).localeCompare(getSortKey(b.key)))
       .map((g) => ({
         period: g.key,
@@ -173,7 +318,7 @@ export default function ReportsComparisonPage() {
         ph_mean: toStats(g.ph).mean,
       }))
     return rows
-  }, [filtered, period, lang])
+  }, [filtered, typeFilter, lang])
 
   // Top stations by avg CPUE
   const topStations = useMemo(() => {
@@ -189,12 +334,12 @@ export default function ReportsComparisonPage() {
   }, [filtered])
 
   // Filter series for Trend by quarter - show 3 years (12 quarters max)
-  const trendSeriesForQuarter = useMemo(() => {
-    if (period !== 'quarter') return series
+  const trendSeriesForQuarter = useMemo<OverviewSeriesRow[]>(() => {
+    if (typeFilter !== 'previous') return series
     
     // Extract year from quarter labels (format: "Q1 2024", "Q2 2024", etc.)
     const yearMap = new Map<string, number>()
-    series.forEach(r => {
+    series.forEach((r: OverviewSeriesRow) => {
       const match = r.period.match(/Q\d+\s+(\d+)/)
       if (match) {
         const year = match[1]
@@ -214,13 +359,13 @@ export default function ReportsComparisonPage() {
       .map(([year]) => year)
     
     // Filter to only quarters from selected 3 years
-    const filtered = series.filter(r => {
+    const filtered = series.filter((r: OverviewSeriesRow) => {
       const match = r.period.match(/Q\d+\s+(\d+)/)
       return match && sortedYears.includes(match[1])
     })
     
     // Sort chronologically: oldest first, newest last (Q1 2022, Q2 2022, ..., Q3 2024, Q4 2024)
-    return filtered.sort((a, b) => {
+    return filtered.sort((a: OverviewSeriesRow, b: OverviewSeriesRow) => {
       const matchA = a.period.match(/Q(\d+)\s+(\d+)/)
       const matchB = b.period.match(/Q(\d+)\s+(\d+)/)
       if (!matchA || !matchB) return 0
@@ -235,11 +380,11 @@ export default function ReportsComparisonPage() {
       return quarterA - quarterB
     })
     .slice(0, 12) // Ensure maximum 12 quarters (3 years × 4 quarters)
-  }, [series, period])
+  }, [series, typeFilter])
 
   function exportCSV() {
     const header = ['Period','CPUE mean','CPUE min','CPUE max','CPUE CV','Depth mean','Temp mean','Sal mean','DO mean','pH mean']
-    const lines = [header.join(',')].concat(series.map((r) => [r.period, r.cpue_mean, r.cpue_min, r.cpue_max, r.cpue_cv, r.depth_mean, r.temp_mean, r.sal_mean, r.do_mean, r.ph_mean].join(',')))
+    const lines = [header.join(',')].concat(series.map((r: OverviewSeriesRow) => [r.period, r.cpue_mean, r.cpue_min, r.cpue_max, r.cpue_cv, r.depth_mean, r.temp_mean, r.sal_mean, r.do_mean, r.ph_mean].join(',')))
     const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -259,7 +404,7 @@ export default function ReportsComparisonPage() {
       <p>${t('dash.desc')}</p>
       <table>
         <tr><th>Period</th><th>CPUE mean</th><th>CPUE min</th><th>CPUE max</th><th>CPUE CV</th><th>Depth mean</th><th>Temp</th><th>Sal</th><th>DO</th><th>pH</th></tr>
-        ${series.map((r) => `<tr><td>${r.period}</td><td>${r.cpue_mean.toFixed(2)}</td><td>${r.cpue_min.toFixed(2)}</td><td>${r.cpue_max.toFixed(2)}</td><td>${r.cpue_cv.toFixed(2)}</td><td>${r.depth_mean.toFixed(2)}</td><td>${r.temp_mean.toFixed(2)}</td><td>${r.sal_mean.toFixed(2)}</td><td>${r.do_mean.toFixed(2)}</td><td>${r.ph_mean.toFixed(2)}</td></tr>`).join('')}
+        ${series.map((r: OverviewSeriesRow) => `<tr><td>${r.period}</td><td>${r.cpue_mean.toFixed(2)}</td><td>${r.cpue_min.toFixed(2)}</td><td>${r.cpue_max.toFixed(2)}</td><td>${r.cpue_cv.toFixed(2)}</td><td>${r.depth_mean.toFixed(2)}</td><td>${r.temp_mean.toFixed(2)}</td><td>${r.sal_mean.toFixed(2)}</td><td>${r.do_mean.toFixed(2)}</td><td>${r.ph_mean.toFixed(2)}</td></tr>`).join('')}
       </table>
       <script>window.print();</script>
       </body></html>`)
@@ -277,28 +422,51 @@ export default function ReportsComparisonPage() {
     <div>
       <Header title={t('dash.title')} desc={t('dash.desc')} icon={<BarChart2 className="h-6 w-6" />} onExport={onTopbarExport} exportLabel={`${t('header.export')}`} sticky={true} />
       {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      {!data && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
-      {data && (
+      {loading && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
+      {!loading && !error && (
         <div className="space-y-4">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
-              <Label>Period</Label>
-              <Select value={period} onValueChange={(v: any) => setPeriod(v)}>
+              <Label>{t('filter.year')}</Label>
+              <Select value={yearFilter} onValueChange={setYearFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="month">Month</SelectItem>
-                  <SelectItem value="quarter">Quarter</SelectItem>
-                  <SelectItem value="year">Year</SelectItem>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {filterOptions.years.map((y: string) => (
+                    <SelectItem key={y} value={y}>{y}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Station</Label>
+              <Label>{t('filter.type')}</Label>
+              <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="previous">{t('filter.type.previous')}</SelectItem>
+                  <SelectItem value="month">{t('filter.type.month')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.value')}</Label>
+              <Select value={valueFilter} onValueChange={setValueFilter}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
+                  {valueOptions.map((v: string) => (
+                    <SelectItem key={v} value={v}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>{t('filter.station')}</Label>
               <Select value={station} onValueChange={setStation}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="all">{t('common.all')}</SelectItem>
                   {filterOptions.stations.map((s: string, idx: number) => (
                     <SelectItem key={idx} value={s}>{s}</SelectItem>
                   ))}
@@ -306,16 +474,16 @@ export default function ReportsComparisonPage() {
               </Select>
             </div>
             <div>
-              <Label>Metric</Label>
+              <Label>{t('filter.metric')}</Label>
               <Select value={metric} onValueChange={(v: any) => setMetric(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="cpue">CPUE</SelectItem>
-                  <SelectItem value="depth">Depth</SelectItem>
-                  <SelectItem value="temp">Temp</SelectItem>
-                  <SelectItem value="sal">Salinity</SelectItem>
-                  <SelectItem value="do">DO</SelectItem>
-                  <SelectItem value="ph">pH</SelectItem>
+                  <SelectItem value="depth">{t('hot.depth')}</SelectItem>
+                  <SelectItem value="temp">{t('water.chart.temp')}</SelectItem>
+                  <SelectItem value="sal">{t('water.chart.salinity')}</SelectItem>
+                  <SelectItem value="do">{t('water.chart.do')}</SelectItem>
+                  <SelectItem value="ph">{t('water.chart.ph')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -325,7 +493,7 @@ export default function ReportsComparisonPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="rounded-xl border bg-background p-3">
               <GaugeChart
-                value={series.reduce((a,b)=>a+b.cpue_mean,0)/(series.length||1)}
+                value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.cpue_mean, 0) / (series.length || 1)}
                 min={0}
                 max={500}
                 label="CPUE"
@@ -334,7 +502,7 @@ export default function ReportsComparisonPage() {
             </div>
             <div className="rounded-xl border bg-background p-3">
               <GaugeChart
-                value={series.reduce((a,b)=>a+b.depth_mean,0)/(series.length||1)}
+                value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.depth_mean, 0) / (series.length || 1)}
                 min={0}
                 max={100}
                 label="Depth"
@@ -343,7 +511,7 @@ export default function ReportsComparisonPage() {
             </div>
             <div className="rounded-xl border bg-background p-3">
               <GaugeChart
-                value={series.reduce((a,b)=>a+b.temp_mean,0)/(series.length||1)}
+                value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.temp_mean, 0) / (series.length || 1)}
                 min={20}
                 max={35}
                 label="Temp"
@@ -352,7 +520,7 @@ export default function ReportsComparisonPage() {
             </div>
             <div className="rounded-xl border bg-background p-3">
               <GaugeChart
-                value={series.reduce((a,b)=>a+b.sal_mean,0)/(series.length||1)}
+                value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.sal_mean, 0) / (series.length || 1)}
                 min={25}
                 max={35}
                 label="Salinity"
@@ -361,7 +529,7 @@ export default function ReportsComparisonPage() {
             </div>
             <div className="rounded-xl border bg-background p-3">
               <GaugeChart
-                value={series.reduce((a,b)=>a+b.do_mean,0)/(series.length||1)}
+                value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.do_mean, 0) / (series.length || 1)}
                 min={0}
                 max={10}
                 label="DO"
@@ -370,7 +538,7 @@ export default function ReportsComparisonPage() {
             </div>
             <div className="rounded-xl border bg-background p-3">
               <GaugeChart
-                value={series.reduce((a,b)=>a+b.ph_mean,0)/(series.length||1)}
+                value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.ph_mean, 0) / (series.length || 1)}
                 min={6}
                 max={9}
                 label="pH"
@@ -382,7 +550,7 @@ export default function ReportsComparisonPage() {
           {/* Environment and Top Stations (moved above Trend) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">{`Env (${metric.toUpperCase()}) by ${period}`}</div>
+              <div className="text-sm font-medium mb-2">{t('dash.chart.envBy')} ({metric.toUpperCase()}) {typeFilter === 'month' ? t('filter.type.month') : t('filter.type.previous')}</div>
               <div style={{ height: 280 }}>
                 <Chart
                   type="bar"
@@ -468,7 +636,7 @@ export default function ReportsComparisonPage() {
               </div>
             </div>
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">Top Stations (Avg CPUE)</div>
+              <div className="text-sm font-medium mb-2">{t('dash.chart.topStations')}</div>
               <div style={{ height: 280 }}>
                 <Chart
                   type="bar"
@@ -561,7 +729,7 @@ export default function ReportsComparisonPage() {
           {/* Multi-Metric Comparison Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">CPUE Range (Min-Max) by {period}</div>
+              <div className="text-sm font-medium mb-2">{t('dash.chart.cpueRange')} {typeFilter === 'month' ? t('filter.type.month') : t('filter.type.previous')}</div>
               <div style={{ height: 280 }}>
                 <Chart
                   type="area"
@@ -659,7 +827,7 @@ export default function ReportsComparisonPage() {
               </div>
             </div>
             <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">CPUE vs Depth Comparison</div>
+              <div className="text-sm font-medium mb-2">{t('dash.chart.cpueVsDepth')}</div>
               <div style={{ height: 280 }}>
                 <Chart
                   type="line"
@@ -797,7 +965,7 @@ export default function ReportsComparisonPage() {
 
           {/* Environmental Metrics Overview */}
           <div className="rounded-xl border bg-background p-3">
-            <div className="text-sm font-medium mb-2">Environmental Metrics Overview by {period}</div>
+            <div className="text-sm font-medium mb-2">{t('dash.chart.envOverview')} {typeFilter === 'month' ? t('filter.type.month') : t('filter.type.previous')}</div>
             <div style={{ height: 320 }}>
               <Chart
                 type="line"
@@ -805,26 +973,26 @@ export default function ReportsComparisonPage() {
                 series={[
                   {
                     name: 'Temp',
-                    data: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.temp_mean)
+                    data: (typeFilter === 'previous' ? trendSeriesForQuarter : series).map(r => r.temp_mean)
                   },
                   {
                     name: 'DO',
-                    data: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.do_mean)
+                    data: (typeFilter === 'previous' ? trendSeriesForQuarter : series).map(r => r.do_mean)
                   },
                   {
                     name: 'pH',
-                    data: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.ph_mean)
+                    data: (typeFilter === 'previous' ? trendSeriesForQuarter : series).map(r => r.ph_mean)
                   },
                   {
                     name: 'Salinity',
-                    data: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.sal_mean)
+                    data: (typeFilter === 'previous' ? trendSeriesForQuarter : series).map(r => r.sal_mean)
                   }
                 ]}
                 options={{
                   chart: {
                     type: 'line',
                     toolbar: { show: false },
-                    zoom: { enabled: period !== 'quarter', type: 'x' },
+                    zoom: { enabled: typeFilter !== 'previous', type: 'x' },
                     fontFamily: 'inherit',
                   },
                   stroke: {
@@ -842,7 +1010,7 @@ export default function ReportsComparisonPage() {
                     strokeWidth: 2
                   },
                   xaxis: {
-                    categories: (period === 'quarter' ? trendSeriesForQuarter : series).map(r => r.period),
+                    categories: (typeFilter === 'previous' ? trendSeriesForQuarter : series).map(r => r.period),
                     labels: {
                       style: {
                         fontSize: '12px',
@@ -892,7 +1060,7 @@ export default function ReportsComparisonPage() {
 
           {/* Summary Table */}
           <div className="rounded-xl border bg-background p-3">
-            <div className="text-sm font-medium mb-2">Summary</div>
+            <div className="text-sm font-medium mb-2">{t('dash.chart.summary')}</div>
             <Table
               columns={["Period","CPUE mean","CPUE min","CPUE max","CV","Depth","Temp","Sal","DO","pH"]}
               rows={series.map((r) => [r.period, r.cpue_mean.toFixed(2), r.cpue_min.toFixed(2), r.cpue_max.toFixed(2), r.cpue_cv.toFixed(2), r.depth_mean.toFixed(2), r.temp_mean.toFixed(2), r.sal_mean.toFixed(2), r.do_mean.toFixed(2), r.ph_mean.toFixed(2)])}
