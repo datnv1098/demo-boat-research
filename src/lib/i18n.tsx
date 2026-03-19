@@ -117,6 +117,8 @@ const translations: Translations = {
   'filter.type.previous': { th: 'ก่อนหน้า', en: 'Previous' },
   'filter.type.month': { th: 'เดือน', en: 'Month' },
   'filter.value': { th: 'ค่า', en: 'Value' },
+  'filter.dateFrom': { th: 'วันที่เริ่มต้น', en: 'From Date' },
+  'filter.dateTo': { th: 'วันที่สิ้นสุด', en: 'To Date' },
   'filter.area': { th: 'พื้นที่', en: 'Area' },
   'filter.station': { th: 'สถานี', en: 'Station' },
   'filter.metric': { th: 'ตัวชี้วัด', en: 'Metric' },

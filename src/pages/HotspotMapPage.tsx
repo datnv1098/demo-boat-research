@@ -146,9 +146,8 @@ export default function HotspotMapPage() {
   const [catchRows, setCatchRows] = useState<any[]>([])
   const { t, lang } = useI18n()
 
-  const [yearFilter, setYearFilter] = useState<string>('all')
-  const [typeFilter, setTypeFilter] = useState<'previous' | 'month'>('previous')
-  const [valueFilter, setValueFilter] = useState<string>('all')
+  const [fromDate, setFromDate] = useState<string>('')
+  const [toDate, setToDate] = useState<string>('')
   const [zone, setZone] = useState<string>('all')
   const [depthClass] = useState<string>('all')
   const [species] = useState<string>('all')
@@ -287,7 +286,6 @@ export default function HotspotMapPage() {
   const filterOptions = useMemo(() => {
     const zoneSet = new Set(stationData.map((r: StationData) => r.zone))
     const zones = Array.from(zoneSet).sort()
-    const years = Array.from(new Set(stationData.map((r: StationData) => String(r.yearNum)))).sort()
     const speciesSet = new Set<string>()
     stationData.forEach((r: StationData) => {
       if (r.speciesSet && r.speciesSet.length > 0) {
@@ -295,30 +293,25 @@ export default function HotspotMapPage() {
       }
     })
     const speciesList = Array.from(speciesSet).sort()
-    return { zones, years, species: speciesList }
+    return { zones, species: speciesList }
   }, [stationData])
 
-  const valueOptions = useMemo(() => {
-    if (typeFilter === 'previous') return ['1', '2', '3', '4']
-    return ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
-  }, [typeFilter])
-
-  useEffect(() => {
-    setValueFilter('all')
-  }, [typeFilter])
-
   const filtered = useMemo(() => {
+    const fromTs = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : null
+    const toTs = toDate ? new Date(`${toDate}T23:59:59`).getTime() : null
+
     return stationData.filter((r: StationData) => {
       if (!isMarineLocation(r.lat, r.lon, r.depth)) return false
+      const surveyTs = r.date ? r.date.getTime() : null
+      if (fromTs != null && (surveyTs == null || surveyTs < fromTs)) return false
+      if (toTs != null && (surveyTs == null || surveyTs > toTs)) return false
       return (
-        (yearFilter === 'all' || String(r.yearNum) === yearFilter) &&
-        (valueFilter === 'all' || (typeFilter === 'previous' ? r.quarterNum === Number(valueFilter) : r.monthNum === Number(valueFilter))) &&
         (zone === 'all' || r.zone === zone) &&
         (depthClass === 'all' || depthToClass(r.depth) === depthClass) &&
         (species === 'all' || (r.speciesSet && r.speciesSet.includes(species)))
       )
     })
-  }, [stationData, yearFilter, typeFilter, valueFilter, zone, depthClass, species])
+  }, [stationData, fromDate, toDate, zone, depthClass, species])
 
   const gridCells = useMemo<HotspotCell[]>(() => {
     const binSize = 0.2
@@ -459,36 +452,26 @@ export default function HotspotMapPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
-              <Label>{t('filter.year')}</Label>
-              <Select value={yearFilter} onValueChange={setYearFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('common.all')}</SelectItem>
-                  {filterOptions.years.map((m: string, idx: number) => <SelectItem key={idx} value={String(m)}>{String(m)}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>{t('filter.dateFrom')}</Label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+              />
+              <div className="mt-1 text-xs text-muted-foreground">{fromDate || t('common.all')}</div>
             </div>
             <div>
-              <Label>{t('filter.type')}</Label>
-              <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="previous">{t('filter.type.previous')}</SelectItem>
-                  <SelectItem value="month">{t('filter.type.month')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>{t('filter.value')}</Label>
-              <Select value={valueFilter} onValueChange={setValueFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">{t('common.all')}</SelectItem>
-                  {valueOptions.map((m: string) => <SelectItem key={m} value={String(m)}>{String(m)}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label>{t('filter.dateTo')}</Label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+              />
+              <div className="mt-1 text-xs text-muted-foreground">{toDate || t('common.all')}</div>
             </div>
             <div>
               <Label>{t('hot.zone')}</Label>
@@ -514,7 +497,7 @@ export default function HotspotMapPage() {
           <ThailandMap
             hotspotData={hotspotCells as any}
             stationData={filtered}
-            month={valueFilter === 'all' ? 'all' : (typeFilter === 'month' ? `M${valueFilter}` : `Q${valueFilter}`)}
+            month={'all'}
             blacklistLinks={blacklistLinks}
             percentileThreshold={hotspotThreshold}
             hotspotStations={hotspotStations}
