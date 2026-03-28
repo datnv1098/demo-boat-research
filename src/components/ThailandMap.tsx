@@ -526,7 +526,7 @@ export function ThailandMap({
   const [showStations, setShowStations] = useState(true)
   const [showGrid, setShowGrid] = useState(true)
   const [showTracks, setShowTracks] = useState(true)
-  const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('carto_voyager')
+  const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('osm')
   const blacklistedLinks = useMemo(() => new Set(blacklistLinks), [blacklistLinks])
   const visibleStations = useMemo(
     () => stationData.filter((s) => !blacklistedLinks.has(s.link)),
