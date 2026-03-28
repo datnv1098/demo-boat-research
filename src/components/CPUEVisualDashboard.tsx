@@ -72,7 +72,7 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
             const fa = d.fishingArea || d.zone || 'N/A'
             if (!fa || fa === 'N/A') continue
             if (!groups.has(fa)) groups.set(fa, [])
-            groups.get(fa)!.push(Number(d.total_weight) || 0)
+            groups.get(fa)!.push(Number(d.total_catch_kg) || 0)
         }
         function quartiles(vals: number[]): [number, number, number, number, number] | null {
             if (vals.length < 5) return null

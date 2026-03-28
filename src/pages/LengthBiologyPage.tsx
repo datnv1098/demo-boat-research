@@ -158,6 +158,7 @@ export default function LengthBiologyPage() {
         monthNum: hdr.monthNum,
         quarterNum: hdr.quarterNum,
         total_weight: Number(c?.total_weight) || 0,
+        total_catch_kg: Number(c?.total_catch_kg) || 0,
       })
     }
     return list
