@@ -523,7 +523,7 @@ export function ThailandMap({
 }: ThailandMapProps) {
   const { t } = useI18n()
   const [showHeatmap, setShowHeatmap] = useState(true)
-  const [showStations, setShowStations] = useState(true)
+  const [showStations, setShowStations] = useState(false)
   const [showGrid, setShowGrid] = useState(true)
   const [showTracks, setShowTracks] = useState(true)
   const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('osm')
