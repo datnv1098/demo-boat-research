@@ -48,6 +48,29 @@ function toNumber(value: unknown): number {
   return NaN
 }
 
+function finiteOrUndefined(value: unknown): number | undefined {
+  const n = toNumber(value)
+  return isFinite(n) ? n : undefined
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+function formatDateKey(date: Date | null): string {
+  if (!date || isNaN(date.getTime())) return ''
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function directionFromComponents(u?: number, v?: number, fromDirection = false): number | undefined {
+  if (u == null || v == null || !isFinite(u) || !isFinite(v)) return undefined
+  if (Math.abs(u) < 1e-9 && Math.abs(v) < 1e-9) return undefined
+
+  const toDirection = (Math.atan2(u, v) * 180) / Math.PI
+  const normalizedToDirection = (toDirection + 360) % 360
+  return fromDirection ? (normalizedToDirection + 180) % 360 : normalizedToDirection
+}
+
 function normalizeLongitude(value: number): number {
   if (!isFinite(value)) return NaN
   if (value > 180) return value - 360
@@ -115,6 +138,14 @@ interface StationData {
   temp?: number
   do?: number
   salinity?: number
+  currentU?: number
+  currentV?: number
+  currentSpeed?: number
+  currentDirection?: number
+  windU?: number
+  windV?: number
+  windSpeed?: number
+  windDirection?: number
   monthLabel: string
   date: Date | null
   yearNum: number
@@ -137,6 +168,12 @@ interface HotspotCell {
   latMax: number
   lonMin: number
   lonMax: number
+  temp?: number
+  salinity?: number
+  currentSpeed?: number
+  currentDirection?: number
+  windSpeed?: number
+  windDirection?: number
 }
 
 export default function HotspotMapPage() {
@@ -144,6 +181,7 @@ export default function HotspotMapPage() {
   const [error, setError] = useState<string | null>(null)
   const [effortRows, setEffortRows] = useState<any[]>([])
   const [catchRows, setCatchRows] = useState<any[]>([])
+  const [envRows, setEnvRows] = useState<any[]>([])
   const { t, lang } = useI18n()
 
   const [fromDate, setFromDate] = useState<string>('')
@@ -161,14 +199,16 @@ export default function HotspotMapPage() {
       setLoading(true)
       setError(null)
       try {
-        const [effortData, catchData] = await Promise.all([
+        const [effortData, catchData, envData] = await Promise.all([
           fetchApiRows('/api/tables/effort2'),
           fetchApiRows('/api/tables/catch2'),
+          fetchApiRows('/api/environment/daily'),
         ])
 
         if (!cancelled) {
           setEffortRows(effortData)
           setCatchRows(catchData)
+          setEnvRows(envData)
         }
       } catch (e) {
         if (!cancelled) setError(String(e))
@@ -218,6 +258,7 @@ export default function HotspotMapPage() {
   const stationData = useMemo(() => {
     const linkToCatchWeight = new Map<string, number>()
     const linkSpeciesSet = new Map<string, Set<string>>()
+    const envByDateAndZone = new Map<string, any>()
 
     for (const c of catchRows) {
       const link = String(c?.sample_id || '')
@@ -227,6 +268,14 @@ export default function HotspotMapPage() {
       const spp = String(c?.species_id || 'ALL')
       if (!linkSpeciesSet.has(link)) linkSpeciesSet.set(link, new Set<string>())
       linkSpeciesSet.get(link)!.add(spp)
+    }
+
+    for (const env of envRows) {
+      const envDate = parseSurveyDate(String(env?.date || ''))
+      const dateKey = formatDateKey(envDate)
+      const zoneKey = normalizeZone(String(env?.region_code || ''))
+      if (!dateKey || !zoneKey) continue
+      envByDateAndZone.set(`${dateKey}|${zoneKey}`, env)
     }
 
     const list: StationData[] = []
@@ -250,6 +299,8 @@ export default function HotspotMapPage() {
       const lon = center.lon
       const surveyDate = parseSurveyDate(String(h?.sample_date_eng || ''))
       if (!surveyDate) continue
+      const zoneCode = normalizeZone(String(h?.main_area || ''))
+      const env = envByDateAndZone.get(`${formatDateKey(surveyDate)}|${zoneCode}`)
       const yearNum = surveyDate.getFullYear()
       const monthNum = surveyDate.getMonth() + 1
       const quarterNum = Math.floor((monthNum - 1) / 3) + 1
@@ -266,9 +317,20 @@ export default function HotspotMapPage() {
         endLat: isFinite(endLat) ? endLat : undefined,
         endLon: isFinite(endLon) ? endLon : undefined,
         cpue: isFinite(cpue) ? cpue : 0,
-        zone: normalizeZone(String(h?.main_area || '')),
+        zone: zoneCode,
         depth: Number(h?.depth) || 0,
         course: String(h?.course || ''),
+        temp: finiteOrUndefined(env?.temp_c),
+        do: finiteOrUndefined(env?.do_mg_l_approx),
+        salinity: finiteOrUndefined(env?.salinity_psu),
+        currentU: finiteOrUndefined(env?.current_u_ms),
+        currentV: finiteOrUndefined(env?.current_v_ms),
+        currentSpeed: finiteOrUndefined(env?.current_speed_ms),
+        currentDirection: finiteOrUndefined(env?.current_direction_deg),
+        windU: finiteOrUndefined(env?.wind_u_ms),
+        windV: finiteOrUndefined(env?.wind_v_ms),
+        windSpeed: finiteOrUndefined(env?.wind_speed_ms),
+        windDirection: finiteOrUndefined(env?.wind_direction_deg),
         monthLabel: toMonthLabel(String(h?.sample_date_eng || '')),
         date: surveyDate,
         yearNum,
@@ -281,7 +343,7 @@ export default function HotspotMapPage() {
     }
 
     return list
-  }, [effortRows, catchRows, lang])
+  }, [effortRows, catchRows, envRows, lang])
 
   const filterOptions = useMemo(() => {
     const zoneSet = new Set(stationData.map((r: StationData) => r.zone))
@@ -316,7 +378,22 @@ export default function HotspotMapPage() {
   const gridCells = useMemo<HotspotCell[]>(() => {
     const binSize = 0.2
     const latMin = 6, latMax = 14, lonMin = 95, lonMax = 105
-    const bucket = new Map<string, HotspotCell>()
+    type HotspotAccumulator = HotspotCell & {
+      tempSum: number
+      tempCount: number
+      salinitySum: number
+      salinityCount: number
+      currentUSum: number
+      currentVSum: number
+      currentSpeedSum: number
+      currentCount: number
+      windUSum: number
+      windVSum: number
+      windSpeedSum: number
+      windCount: number
+    }
+
+    const bucket = new Map<string, HotspotAccumulator>()
 
     for (const s of filtered) {
       if (!isFinite(s.lat) || !isFinite(s.lon)) continue
@@ -342,6 +419,18 @@ export default function HotspotMapPage() {
           latMax: cellLatMin + binSize,
           lonMin: cellLonMin,
           lonMax: cellLonMin + binSize,
+          tempSum: 0,
+          tempCount: 0,
+          salinitySum: 0,
+          salinityCount: 0,
+          currentUSum: 0,
+          currentVSum: 0,
+          currentSpeedSum: 0,
+          currentCount: 0,
+          windUSum: 0,
+          windVSum: 0,
+          windSpeedSum: 0,
+          windCount: 0,
         })
       }
 
@@ -349,12 +438,49 @@ export default function HotspotMapPage() {
       cell.count += 1
       cell.totalCatch += s.totalCatch
       cell.totalEffort += s.effortHours
+
+      if (s.temp != null && isFinite(s.temp)) {
+        cell.tempSum += s.temp
+        cell.tempCount += 1
+      }
+      if (s.salinity != null && isFinite(s.salinity)) {
+        cell.salinitySum += s.salinity
+        cell.salinityCount += 1
+      }
+      if (s.currentU != null && s.currentV != null && isFinite(s.currentU) && isFinite(s.currentV)) {
+        cell.currentUSum += s.currentU
+        cell.currentVSum += s.currentV
+        cell.currentCount += 1
+      }
+      if (s.currentSpeed != null && isFinite(s.currentSpeed)) {
+        cell.currentSpeedSum += s.currentSpeed
+      }
+      if (s.windU != null && s.windV != null && isFinite(s.windU) && isFinite(s.windV)) {
+        cell.windUSum += s.windU
+        cell.windVSum += s.windV
+        cell.windCount += 1
+      }
+      if (s.windSpeed != null && isFinite(s.windSpeed)) {
+        cell.windSpeedSum += s.windSpeed
+      }
     }
 
     return Array.from(bucket.values())
       .map((cell) => ({
         ...cell,
         cpue: cell.totalEffort > 0 ? cell.totalCatch / cell.totalEffort : 0,
+        temp: cell.tempCount > 0 ? cell.tempSum / cell.tempCount : undefined,
+        salinity: cell.salinityCount > 0 ? cell.salinitySum / cell.salinityCount : undefined,
+        currentSpeed: cell.currentCount > 0 ? cell.currentSpeedSum / cell.currentCount : undefined,
+        currentDirection:
+          cell.currentCount > 0
+            ? directionFromComponents(cell.currentUSum / cell.currentCount, cell.currentVSum / cell.currentCount)
+            : undefined,
+        windSpeed: cell.windCount > 0 ? cell.windSpeedSum / cell.windCount : undefined,
+        windDirection:
+          cell.windCount > 0
+            ? directionFromComponents(cell.windUSum / cell.windCount, cell.windVSum / cell.windCount, true)
+            : undefined,
       }))
       .filter((cell) => cell.cpue > 0)
       .sort((a, b) => b.cpue - a.cpue)

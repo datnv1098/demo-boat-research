@@ -33,6 +33,12 @@ interface HotspotCell {
   latMax: number
   lonMin: number
   lonMax: number
+  temp?: number
+  salinity?: number
+  currentSpeed?: number
+  currentDirection?: number
+  windSpeed?: number
+  windDirection?: number
 }
 
 interface StationData {
@@ -50,6 +56,10 @@ interface StationData {
   temp?: number
   do?: number
   salinity?: number
+  currentSpeed?: number
+  currentDirection?: number
+  windSpeed?: number
+  windDirection?: number
   monthLabel: string
 }
 
@@ -95,6 +105,23 @@ function normalizeCpue(cpue: number, p10: number, p90: number): number {
   if (denom <= 0) return 0.2
   const n = (Math.log1p(Math.max(0, cpue)) - Math.log1p(low)) / denom
   return clamp(0.08 + clamp(n, 0, 1) * 0.68, 0.08, 0.7)
+}
+
+function formatMetric(value?: number, digits = 1): string | null {
+  return value != null && isFinite(value) ? value.toFixed(digits) : null
+}
+
+function formatDirection(value?: number): string | null {
+  return value != null && isFinite(value) ? `${value.toFixed(0)}°` : null
+}
+
+function formatCurrentSummary(speed?: number, direction?: number): string | null {
+  const speedText = formatMetric(speed, 2)
+  const directionText = formatDirection(direction)
+  if (!speedText && !directionText) return null
+  if (speedText && directionText) return `${directionText} / ${speedText} m/s`
+  if (directionText) return directionText
+  return `${speedText} m/s`
 }
 
 const HEAT_REFERENCE_RADIUS = 15
@@ -709,6 +736,18 @@ export function ThailandMap({
                           <span>{station.salinity.toFixed(1)} PSU</span>
                         </div>
                       )}
+                      {(station.windDirection != null || station.windSpeed != null) && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Wind:</span>
+                          <span>{formatCurrentSummary(station.windSpeed, station.windDirection)}</span>
+                        </div>
+                      )}
+                      {(station.currentDirection != null || station.currentSpeed != null) && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Current:</span>
+                          <span>{formatCurrentSummary(station.currentSpeed, station.currentDirection)}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Popup>
@@ -789,6 +828,10 @@ function GridOverlay({
           <div>Hauls: ${cell.count}</div>
           <div>Catch: ${cell.totalCatch.toFixed(2)} kg</div>
           <div>Effort: ${cell.totalEffort.toFixed(2)} hr</div>
+          ${cell.temp != null && isFinite(cell.temp) ? `<div>Temp: ${cell.temp.toFixed(1)} °C</div>` : ''}
+          ${cell.salinity != null && isFinite(cell.salinity) ? `<div>Salinity: ${cell.salinity.toFixed(1)} PSU</div>` : ''}
+          ${formatCurrentSummary(cell.windSpeed, cell.windDirection) ? `<div>Wind: ${formatCurrentSummary(cell.windSpeed, cell.windDirection)}</div>` : ''}
+          ${formatCurrentSummary(cell.currentSpeed, cell.currentDirection) ? `<div>Current: ${formatCurrentSummary(cell.currentSpeed, cell.currentDirection)}</div>` : ''}
         </div>
       `)
       group.addLayer(polygon)
