@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
+import { useState, useEffect, useMemo, startTransition } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, ImageOverlay, useMap } from 'react-leaflet'
 import { LatLngBounds } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import 'leaflet.heat'
 import { Switch } from './ui/switch'
 import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { useI18n } from '../lib/i18n'
+import thailandCoastalLandMask from '../data/thailandCoastalLandMask.json'
 
 // Import Leaflet icons
 import L from 'leaflet'
@@ -63,6 +63,20 @@ interface ThailandMapProps {
   blacklistLinks?: string[]
 }
 
+type GeoRing = [number, number][]
+type GeoPolygon = GeoRing[]
+type CoastalLandFeature = {
+  name: string
+  polygons: GeoPolygon[]
+}
+type PreparedCoastalPolygon = {
+  ring: GeoRing
+  minLat: number
+  maxLat: number
+  minLon: number
+  maxLon: number
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
@@ -81,6 +95,293 @@ function normalizeCpue(cpue: number, p10: number, p90: number): number {
   if (denom <= 0) return 0.2
   const n = (Math.log1p(Math.max(0, cpue)) - Math.log1p(low)) / denom
   return clamp(0.08 + clamp(n, 0, 1) * 0.68, 0.08, 0.7)
+}
+
+const HEAT_REFERENCE_RADIUS = 15
+const HEAT_BLUR_RATIO = 1.85
+const HEAT_MAX_INTENSITY = 1.55
+const HEAT_MIN_RADIUS = 2
+const HEAT_MAX_RADIUS = 96
+const HEAT_MIN_BLUR = 4
+const HEAT_MAX_BLUR = 180
+const LAND_MASK_SHORELINE_PX = 4
+const HEAT_MIN_OPACITY = 0.19
+const HEAT_OVERLAY_MAX_DIM = 2560
+const HEAT_GRADIENT_STOPS: Record<number, string> = {
+  0.08: '#d8f8ff',
+  0.26: '#afe8f4',
+  0.44: '#79cedf',
+  0.60: '#f4df87',
+  0.78: '#f1b075',
+  0.92: '#e88669',
+  1.00: '#de705b',
+}
+const COASTAL_LAND_MASK: PreparedCoastalPolygon[] = (thailandCoastalLandMask as CoastalLandFeature[]).flatMap((feature) =>
+  feature.polygons
+    .map((polygon) => polygon[0])
+    .filter((ring): ring is GeoRing => ring.length > 2)
+    .map((ring) => {
+      let minLat = Infinity
+      let maxLat = -Infinity
+      let minLon = Infinity
+      let maxLon = -Infinity
+
+      for (const [lon, lat] of ring) {
+        if (lat < minLat) minLat = lat
+        if (lat > maxLat) maxLat = lat
+        if (lon < minLon) minLon = lon
+        if (lon > maxLon) maxLon = lon
+      }
+
+      return {
+        ring,
+        minLat,
+        maxLat,
+        minLon,
+        maxLon,
+      }
+    })
+)
+
+function getHeatKernel(map: L.Map, zoom: number, referenceZoom: number) {
+  const zoomScale = map.getZoomScale(zoom, referenceZoom)
+  const radius = clamp(HEAT_REFERENCE_RADIUS * zoomScale, HEAT_MIN_RADIUS, HEAT_MAX_RADIUS)
+  const blur = clamp(
+    HEAT_REFERENCE_RADIUS * HEAT_BLUR_RATIO * zoomScale,
+    HEAT_MIN_BLUR,
+    HEAT_MAX_BLUR
+  )
+
+  return {
+    radius: Math.round(radius),
+    blur: Math.round(blur),
+  }
+}
+
+function buildHeatCircle(radius: number, blur: number) {
+  const drawRadius = radius + blur
+  const circle = document.createElement('canvas')
+  const ctx = circle.getContext('2d')
+  if (!ctx) return null
+
+  circle.width = circle.height = drawRadius * 2
+  ctx.shadowOffsetX = 200
+  ctx.shadowOffsetY = 200
+  ctx.shadowBlur = blur
+  ctx.shadowColor = 'black'
+  ctx.beginPath()
+  ctx.arc(drawRadius - 200, drawRadius - 200, radius, 0, Math.PI * 2, true)
+  ctx.closePath()
+  ctx.fill()
+
+  return { circle, drawRadius }
+}
+
+function buildHeatGradient() {
+  const gradientCanvas = document.createElement('canvas')
+  const ctx = gradientCanvas.getContext('2d')
+  if (!ctx) return null
+
+  gradientCanvas.width = 1
+  gradientCanvas.height = 256
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, 256)
+  for (const [offset, color] of Object.entries(HEAT_GRADIENT_STOPS)) {
+    gradient.addColorStop(Number(offset), color)
+  }
+
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, 1, 256)
+
+  return ctx.getImageData(0, 0, 1, 256).data
+}
+
+function colorizeHeatmap(pixels: Uint8ClampedArray, gradient: Uint8ClampedArray) {
+  for (let i = 3; i < pixels.length; i += 4) {
+    const alphaIndex = pixels[i] * 4
+    if (!alphaIndex) continue
+
+    pixels[i - 3] = gradient[alphaIndex]
+    pixels[i - 2] = gradient[alphaIndex + 1]
+    pixels[i - 1] = gradient[alphaIndex + 2]
+  }
+}
+
+function eraseHeatOnLandWithProjection(
+  ctx: CanvasRenderingContext2D,
+  projectPoint: (lat: number, lon: number) => { x: number; y: number }
+) {
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-out'
+  ctx.fillStyle = '#000'
+  ctx.strokeStyle = '#000'
+  ctx.lineJoin = 'round'
+  ctx.lineCap = 'round'
+  ctx.lineWidth = LAND_MASK_SHORELINE_PX
+
+  for (const polygon of COASTAL_LAND_MASK) {
+    ctx.beginPath()
+
+    polygon.ring.forEach(([lon, lat], index) => {
+      const point = projectPoint(lat, lon)
+      if (index === 0) {
+        ctx.moveTo(point.x, point.y)
+        return
+      }
+      ctx.lineTo(point.x, point.y)
+    })
+
+    ctx.closePath()
+    ctx.fill()
+    if (LAND_MASK_SHORELINE_PX > 0) ctx.stroke()
+  }
+
+  ctx.restore()
+}
+
+function aggregateHeatPointsForOverlay(
+  points: [number, number, number][],
+  map: L.Map,
+  renderZoom: number,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  rasterScale: number,
+  bucketSize: number
+) {
+  const buckets = new Map<string, [number, number, number]>()
+
+  for (const [lat, lon, weight] of points) {
+    const projected = map.project([lat, lon], renderZoom)
+    const x = (projected.x - left) * rasterScale
+    const y = (projected.y - top) * rasterScale
+    if (x < 0 || x > width || y < 0 || y > height) continue
+
+    const bucketX = Math.floor(x / bucketSize)
+    const bucketY = Math.floor(y / bucketSize)
+    const key = `${bucketX}:${bucketY}`
+    const existing = buckets.get(key)
+
+    if (existing) {
+      existing[0] = (existing[0] * existing[2] + x * weight) / (existing[2] + weight)
+      existing[1] = (existing[1] * existing[2] + y * weight) / (existing[2] + weight)
+      existing[2] += weight
+      continue
+    }
+
+    buckets.set(key, [x, y, weight])
+  }
+
+  return Array.from(buckets.values()).map(([x, y, weight]) => [
+    Math.round(x),
+    Math.round(y),
+    Math.min(weight, HEAT_MAX_INTENSITY),
+  ] as [number, number, number])
+}
+
+function renderHeatOverlay(
+  map: L.Map,
+  points: [number, number, number][],
+  bounds: L.LatLngBounds,
+  referenceZoom: number
+) {
+  if (!points.length) return null
+
+  const renderZoom = map.getMaxZoom()
+  const sw = map.project(bounds.getSouthWest(), renderZoom)
+  const ne = map.project(bounds.getNorthEast(), renderZoom)
+  const projectedWidth = Math.max(1, ne.x - sw.x)
+  const projectedHeight = Math.max(1, sw.y - ne.y)
+  const rasterScale = HEAT_OVERLAY_MAX_DIM / Math.max(projectedWidth, projectedHeight)
+  const width = Math.max(1, Math.round(projectedWidth * rasterScale))
+  const height = Math.max(1, Math.round(projectedHeight * rasterScale))
+  const kernel = getHeatKernel(map, renderZoom, referenceZoom)
+  const radius = Math.max(1, Math.round(kernel.radius * rasterScale))
+  const blur = Math.max(1, Math.round(kernel.blur * rasterScale))
+  const baseBucketSize = (HEAT_REFERENCE_RADIUS + HEAT_REFERENCE_RADIUS * HEAT_BLUR_RATIO) / 2
+  const bucketSize = Math.max(
+    1,
+    Math.round(baseBucketSize * map.getZoomScale(renderZoom, referenceZoom) * rasterScale)
+  )
+  const circle = buildHeatCircle(radius, blur)
+  const gradient = buildHeatGradient()
+  if (!circle || !gradient) return null
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+
+  const data = aggregateHeatPointsForOverlay(
+    points,
+    map,
+    renderZoom,
+    sw.x,
+    ne.y,
+    width,
+    height,
+    rasterScale,
+    bucketSize
+  )
+
+  for (const [x, y, weight] of data) {
+    ctx.globalAlpha = Math.max(weight / HEAT_MAX_INTENSITY, HEAT_MIN_OPACITY)
+    ctx.drawImage(circle.circle, x - circle.drawRadius, y - circle.drawRadius)
+  }
+
+  const image = ctx.getImageData(0, 0, width, height)
+  colorizeHeatmap(image.data, gradient)
+  ctx.putImageData(image, 0, 0)
+
+  eraseHeatOnLandWithProjection(ctx, (lat, lon) => {
+    const projected = map.project([lat, lon], renderZoom)
+    return {
+      x: (projected.x - sw.x) * rasterScale,
+      y: (projected.y - ne.y) * rasterScale,
+    }
+  })
+
+  return canvas.toDataURL('image/png')
+}
+
+function isPointInRing(lat: number, lon: number, ring: GeoRing): boolean {
+  let inside = false
+
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const [lonI, latI] = ring[i]
+    const [lonJ, latJ] = ring[j]
+    const intersects =
+      latI > lat !== latJ > lat &&
+      lon < ((lonJ - lonI) * (lat - latI)) / ((latJ - latI) || Number.EPSILON) + lonI
+
+    if (intersects) inside = !inside
+  }
+
+  return inside
+}
+
+function isPointOnLand(lat: number, lon: number): boolean {
+  for (const polygon of COASTAL_LAND_MASK) {
+    if (lat < polygon.minLat || lat > polygon.maxLat || lon < polygon.minLon || lon > polygon.maxLon) {
+      continue
+    }
+
+    if (isPointInRing(lat, lon, polygon.ring)) return true
+  }
+
+  return false
+}
+
+function pushHeatPoint(
+  points: [number, number, number][],
+  lat: number,
+  lon: number,
+  intensity: number
+) {
+  if (isPointOnLand(lat, lon)) return
+  points.push([lat, lon, intensity])
 }
 
 function makeSurfaceHeatPoints(stations: StationData[]): [number, number, number][] {
@@ -124,16 +425,16 @@ function makeSurfaceHeatPoints(stations: StationData[]): [number, number, number
         const lon = startLon + (endLon - startLon) * t
         const centerBoost = 1 - Math.abs(t - 0.5) * 0.55
         const intensity = clamp(baseIntensity * centerBoost, 0.08, 1)
-        points.push([lat, lon, intensity])
+        pushHeatPoint(points, lat, lon, intensity)
 
         const offset = 0.035
-        points.push([lat + perpLat * offset, lon + perpLon * offset, intensity * 0.42])
-        points.push([lat - perpLat * offset, lon - perpLon * offset, intensity * 0.42])
+        pushHeatPoint(points, lat + perpLat * offset, lon + perpLon * offset, intensity * 0.42)
+        pushHeatPoint(points, lat - perpLat * offset, lon - perpLon * offset, intensity * 0.42)
       }
       continue
     }
 
-    points.push([station.lat, station.lon, baseIntensity])
+    pushHeatPoint(points, station.lat, station.lon, baseIntensity)
 
     const spreadRings = [0.05, 0.1, 0.18]
     const decay = [0.55, 0.28, 0.12]
@@ -143,11 +444,12 @@ function makeSurfaceHeatPoints(stations: StationData[]): [number, number, number
         const angle = (2 * Math.PI * i) / dirs
         const latOffset = Math.sin(angle) * radius * 0.72
         const lonOffset = Math.cos(angle) * radius * 1.25
-        points.push([
+        pushHeatPoint(
+          points,
           station.lat + latOffset,
           station.lon + lonOffset,
-          clamp(baseIntensity * decay[ringIdx], 0.03, 0.6),
-        ])
+          clamp(baseIntensity * decay[ringIdx], 0.03, 0.6)
+        )
       }
     })
   }
@@ -155,66 +457,34 @@ function makeSurfaceHeatPoints(stations: StationData[]): [number, number, number
   return points
 }
 
-// Heatmap Layer Component with dynamic radius based on zoom
-function HeatmapLayer({ points }: { points: [number, number, number][] }) {
+// Render the heatmap once into a raster aligned to marine bounds so zoom/pan
+// keeps the original footprint and colors instead of re-bucketing per zoom.
+function HeatmapLayer({
+  points,
+  bounds,
+}: {
+  points: [number, number, number][]
+  bounds: L.LatLngBounds
+}) {
   const map = useMap()
+  const [overlayUrl, setOverlayUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!map || !points.length) return
-
-    // Keep kernel compact when zooming in, but taper it more gradually across zoom levels.
-    const calculateRadius = (zoom: number): number => {
-      const BASE_RADIUS = 15
-      const ZOOM_ANCHOR = 7
-      const radius = BASE_RADIUS * Math.pow(1, zoom - ZOOM_ANCHOR)
-      return Math.max(6, Math.min(radius, 20))
+    if (!map || !points.length) {
+      setOverlayUrl(null)
+      return
     }
 
-    const calculateBlur = (radius: number): number => {
-      return Math.max(10, Math.min(Math.round(radius * 1.85), 28))
-    }
+    const referenceZoom = map.getZoom()
+    const nextOverlayUrl = renderHeatOverlay(map, points, bounds, referenceZoom)
+    startTransition(() => {
+      setOverlayUrl(nextOverlayUrl)
+    })
+  }, [map, points, bounds])
 
-    const currentZoom = map.getZoom()
-    const initialRadius = calculateRadius(currentZoom)
-    const initialBlur = calculateBlur(initialRadius)
+  if (!overlayUrl) return null
 
-    // @ts-ignore - leaflet.heat doesn't have official types in some setups
-    const heatLayer = L.heatLayer(points, {
-      radius: initialRadius,
-      blur: initialBlur,
-      minOpacity: 0.19,
-      gradient: {
-        0.08: '#d8f8ff',
-        0.26: '#afe8f4',
-        0.44: '#79cedf',
-        0.60: '#f4df87',
-        0.78: '#f1b075',
-        0.92: '#e88669',
-        1.00: '#de705b',
-      }
-    }).addTo(map)
-
-    // Update radius when zoom changes
-    const handleZoomEnd = () => {
-      const newZoom = map.getZoom()
-      const newRadius = calculateRadius(newZoom)
-      const newBlur = calculateBlur(newRadius)
-
-      // @ts-ignore
-      heatLayer.setOptions({ radius: newRadius, blur: newBlur })
-      // @ts-ignore
-      heatLayer.redraw()
-    }
-
-    map.on('zoomend', handleZoomEnd)
-
-    return () => {
-      map.off('zoomend', handleZoomEnd)
-      map.removeLayer(heatLayer)
-    }
-  }, [map, points])
-
-  return null
+  return <ImageOverlay url={overlayUrl} bounds={bounds} opacity={1} interactive={false} />
 }
 
 export function ThailandMap({
@@ -230,18 +500,34 @@ export function ThailandMap({
   const [showGrid, setShowGrid] = useState(true)
   const [showTracks, setShowTracks] = useState(true)
   const [tileStyle, setTileStyle] = useState<'carto_voyager' | 'osm' | 'esri_ocean'>('carto_voyager')
-
-  const visibleStations = stationData.filter((s) => !blacklistLinks.includes(s.link))
-  const visibleHotspots = hotspotStations.filter((s) => !blacklistLinks.includes(s.link))
-  const visibleGridCells = gridCells.filter((cell) => cell.cpue > 0)
-  const heatmapPoints = makeSurfaceHeatPoints(visibleStations)
+  const blacklistedLinks = useMemo(() => new Set(blacklistLinks), [blacklistLinks])
+  const visibleStations = useMemo(
+    () => stationData.filter((s) => !blacklistedLinks.has(s.link)),
+    [stationData, blacklistedLinks]
+  )
+  const visibleHotspots = useMemo(
+    () => hotspotStations.filter((s) => !blacklistedLinks.has(s.link)),
+    [hotspotStations, blacklistedLinks]
+  )
+  const visibleGridCells = useMemo(
+    () => gridCells.filter((cell) => cell.cpue > 0),
+    [gridCells]
+  )
+  const heatmapPoints = useMemo(
+    () => makeSurfaceHeatPoints(visibleStations),
+    [visibleStations]
+  )
 
   // Provincial overlay removed per request
 
   // Calculate bounds for Thailand Marine Area
-  const marineBounds = new LatLngBounds(
-    [5.0, 96.5], // Southwest (Andaman)
-    [14.0, 104.5] // Northeast (Upper Gulf)
+  const marineBounds = useMemo(
+    () =>
+      new LatLngBounds(
+        [5.0, 96.5], // Southwest (Andaman)
+        [14.0, 104.5] // Northeast (Upper Gulf)
+      ),
+    []
   )
 
   return (
@@ -319,6 +605,9 @@ export function ThailandMap({
           zoom={7.2}
           minZoom={3}
           maxZoom={9}
+          zoomAnimation={false}
+          fadeAnimation={false}
+          markerZoomAnimation={false}
           style={{ height: '100%', width: '100%' }}
           bounds={marineBounds}
           maxBounds={marineBounds}
@@ -350,7 +639,7 @@ export function ThailandMap({
 
           {/* Heatmap Overlay */}
           {showHeatmap && (
-            <HeatmapLayer points={heatmapPoints} />
+            <HeatmapLayer points={heatmapPoints} bounds={marineBounds} />
           )}
 
           {/* Grid overlay */}
