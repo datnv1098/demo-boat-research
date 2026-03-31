@@ -9,7 +9,7 @@ const translations: Translations = {
   'app.topnav.badge': { th: 'เดสก์ท็อป • ข้อมูลจริง', en: 'Desktop • Real data' },
   'app.topnav.version': { th: 'v1.0 • ต.ค. 2568', en: 'v1.0 • Oct 2025' },
   'app.sidebar.features': { th: 'ฟีเจอร์', en: 'Features' },
-  'app.sidebar.footer': { th: 'โอเพ่นซอร์สเท่านั้น • อัปโหลดเป็นแบทช์', en: 'Open source only • Batch upload' },
+  'app.sidebar.footer': { th: 'ลิขสิทธิ์ 2025 © NavoraCrop', en: 'Copyright 2025 © NavoraCrop' },
 
   'nav.ingestionQc': { th: 'นำเข้า & ตรวจสอบคุณภาพ', en: 'Ingestion & QC' },
   'nav.cpue': { th: 'CPUE', en: 'CPUE' },

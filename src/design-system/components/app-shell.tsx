@@ -101,14 +101,29 @@ export function AppShell({
     }
   }, [activeId, Boolean(pageIntro)])
 
+  useEffect(() => {
+    const main = mainRef.current
+
+    if (!main) return
+
+    main.scrollTo({ top: 0, behavior: 'auto' })
+  }, [activeId])
+
   const navigation = (
-    <div className="flex h-full flex-col rounded-[1.75rem] border border-border/70 bg-card/88 p-3 shadow-shell backdrop-blur-sm">
-      <div className="mb-3 flex items-center justify-between gap-2 px-2">
-        <div className={cn('min-w-0', collapsed && 'lg:hidden')}>
-          <div className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            {navLabel}
+    <div
+      className={cn(
+        'flex h-full flex-col rounded-[1.75rem] border border-border/70 bg-card/88 shadow-shell backdrop-blur-sm',
+        collapsed ? 'p-2.5' : 'p-3',
+      )}
+    >
+      <div className={cn('mb-3 flex items-center gap-2', collapsed ? 'justify-center px-0' : 'justify-between px-2')}>
+        {!collapsed ? (
+          <div className="min-w-0">
+            <div className="text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              {navLabel}
+            </div>
           </div>
-        </div>
+        ) : null}
         <Button
           variant="ghost"
           size="icon"
@@ -119,35 +134,36 @@ export function AppShell({
           {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
         </Button>
       </div>
-      <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
+      <nav className={cn('flex-1 space-y-1 overflow-x-hidden overflow-y-auto', collapsed ? 'pr-0' : 'pr-1')}>
         {navItems.map((item) => {
           const isActive = item.id === activeId
 
           return (
             <button
               key={item.id}
+              title={collapsed ? item.label : undefined}
+              aria-label={item.label}
               onClick={() => {
                 onNavigate(item.id)
                 setMobileOpen(false)
               }}
               className={cn(
-                'flex w-full items-center gap-3 rounded-2xl border px-3 py-2.5 text-left text-sm transition-all',
+                'flex w-full items-center rounded-2xl border py-2.5 text-sm transition-all',
+                collapsed ? 'justify-center px-0 text-center' : 'gap-3 px-3 text-left',
                 isActive
                   ? 'border-primary/25 bg-primary/10 text-primary shadow-sm'
                   : 'border-transparent text-foreground/78 hover:border-border/60 hover:bg-muted/60 hover:text-foreground',
               )}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background/80 shadow-xs">
+              <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-background/80 shadow-xs', collapsed && 'mx-auto')}>
                 {item.icon}
               </span>
-              <span className={cn('truncate', collapsed && 'lg:hidden')}>{item.label}</span>
+              {!collapsed ? <span className="truncate">{item.label}</span> : null}
             </button>
           )
         })}
       </nav>
-      <div className={cn('mt-4 border-t border-border/60 px-2 pt-3 text-xs text-muted-foreground', collapsed && 'lg:hidden')}>
-        {navFooter}
-      </div>
+      {!collapsed ? <div className="mt-4 border-t border-border/60 px-2 pt-3 text-xs text-muted-foreground">{navFooter}</div> : null}
     </div>
   )
 
@@ -175,7 +191,7 @@ export function AppShell({
               </div>
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-foreground">{brand}</div>
-                <div className="text-xs text-muted-foreground">Design System enabled</div>
+                <div className="text-xs text-muted-foreground">Design System by NavoraCorp</div>
               </div>
               {badge ? (
                 <Badge variant="info" className="hidden sm:inline-flex">
@@ -212,7 +228,7 @@ export function AppShell({
 
       <div className="h-full pt-[var(--app-header-height)]">
         <aside
-          className="fixed bottom-0 left-0 top-[var(--app-header-height)] hidden p-4 lg:block"
+          className={cn('fixed bottom-0 left-0 top-[var(--app-header-height)] hidden lg:block', collapsed ? 'p-3' : 'p-4')}
           style={{ width: sidebarWidth }}
         >
           {navigation}
@@ -237,9 +253,11 @@ export function AppShell({
           style={{ ['--app-shell-sidebar-width' as string]: sidebarWidth }}
         >
           <div className="mx-auto w-full max-w-[var(--page-max-width)] pt-5">
-            {pageIntro ? <div ref={pageIntroRef}>{pageIntro}</div> : null}
+            {pageIntro ? <div ref={pageIntroRef} className="page-shell-enter">{pageIntro}</div> : null}
             {pageIntro ? <div className="h-5" aria-hidden="true" /> : null}
-            <div ref={pageContentRef}>{children}</div>
+            <div key={activeId} ref={pageContentRef} className="page-shell-enter">
+              {children}
+            </div>
           </div>
         </main>
       </div>
