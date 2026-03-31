@@ -4,52 +4,92 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 205 43% 98%;
+    --foreground: 215 31% 16%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 31% 16%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --popover-foreground: 215 31% 16%;
+    --primary: 203 84% 43%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
+    --secondary: 203 36% 94%;
+    --secondary-foreground: 210 33% 18%;
+    --muted: 205 34% 94%;
+    --muted-foreground: 215 14% 43%;
+    --accent: 199 79% 96%;
+    --accent-foreground: 206 100% 22%;
+    --destructive: 0 72% 59%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-    --radius: 0.5rem;
+    --danger: 0 72% 59%;
+    --danger-foreground: 210 40% 98%;
+    --success: 158 66% 36%;
+    --success-foreground: 210 40% 98%;
+    --warning: 36 88% 51%;
+    --warning-foreground: 210 33% 12%;
+    --info: 194 86% 45%;
+    --info-foreground: 210 40% 98%;
+    --border: 205 30% 86%;
+    --input: 205 31% 88%;
+    --ring: 203 84% 43%;
+    --radius: 0.9rem;
+    --radius-sm: 0.7rem;
+    --radius-xs: 0.55rem;
+    --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow-panel: 0 14px 40px rgba(15, 23, 42, 0.08);
+    --shadow-shell: 0 22px 55px rgba(15, 23, 42, 0.12);
+    --chart-1: 203 84% 43%;
+    --chart-2: 190 84% 42%;
+    --chart-3: 158 66% 36%;
+    --chart-4: 36 88% 51%;
+    --chart-5: 0 72% 59%;
+    --chart-6: 262 83% 63%;
+    --app-header-height: 4rem;
+    --app-sidebar-width: 18rem;
+    --app-sidebar-width-collapsed: 6.25rem;
+    --page-max-width: 80rem;
+    --page-padding: clamp(1rem, 0.65rem + 1vw, 1.5rem);
+    --motion-snappy: 160ms;
+    --motion-smooth: 240ms;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 216 27% 12%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 217 28% 14%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 217 28% 14%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 203 89% 61%;
+    --primary-foreground: 216 27% 12%;
+    --secondary: 216 18% 22%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 216 18% 18%;
+    --muted-foreground: 213 14% 72%;
+    --accent: 205 35% 18%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 70% 56%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 94.1%;
+    --danger: 0 70% 56%;
+    --danger-foreground: 210 40% 98%;
+    --success: 158 58% 48%;
+    --success-foreground: 210 40% 98%;
+    --warning: 36 92% 58%;
+    --warning-foreground: 216 27% 12%;
+    --info: 194 82% 58%;
+    --info-foreground: 216 27% 12%;
+    --border: 216 18% 24%;
+    --input: 216 18% 24%;
+    --ring: 203 89% 61%;
   }
 }
 
 @layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   * {
     @apply border-border;
   }
@@ -58,5 +98,34 @@
     @apply bg-background text-foreground;
     font-family: 'Noto Sans Thai', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
     overflow: hidden;
+    text-rendering: optimizeLegibility;
+    background-image:
+      radial-gradient(circle at top right, rgba(103, 183, 255, 0.16), transparent 28%),
+      radial-gradient(circle at left 20%, rgba(17, 181, 201, 0.12), transparent 20%);
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+}
+
+@layer components {
+  .bg-shell-gradient {
+    background-image:
+      radial-gradient(circle at top right, rgba(103, 183, 255, 0.18), transparent 28%),
+      radial-gradient(circle at left 10%, rgba(17, 181, 201, 0.12), transparent 18%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 249, 252, 0.98));
+  }
+
+  .shadow-xs {
+    box-shadow: var(--shadow-xs);
+  }
+
+  .shadow-panel {
+    box-shadow: var(--shadow-panel);
+  }
+
+  .shadow-shell {
+    box-shadow: var(--shadow-shell);
   }
 }

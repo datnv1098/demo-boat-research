@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { BarChart2 } from 'lucide-react'
-import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
+import {
+  ErrorState,
+  Field,
+  FilterBar,
+  Header,
+  LoadingState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SurfacePanel,
+  Table,
+} from '../components/common'
 import { useI18n } from '../lib/i18n'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
@@ -397,14 +410,13 @@ export default function ReportsComparisonPage() {
   return (
     <div>
       <Header title={t('dash.title')} desc={t('dash.desc')} icon={<BarChart2 className="h-6 w-6" />} onExport={onTopbarExport} exportLabel={`${t('header.export')}`} sticky={true} />
-      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      {loading && !error && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
+      {error && <ErrorState message={error} className="mb-3" />}
+      {loading && !error && <LoadingState label={t('loading.demo')} className="mb-3" />}
       {!loading && !error && (
         <div className="space-y-4">
           {/* Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <div>
-              <Label>{t('filter.year')}</Label>
+          <FilterBar gridClassName="md:grid-cols-5">
+            <Field label={t('filter.year')}>
               <Select value={yearFilter} onValueChange={setYearFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -414,9 +426,8 @@ export default function ReportsComparisonPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.type')}</Label>
+            </Field>
+            <Field label={t('filter.type')}>
               <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -424,9 +435,8 @@ export default function ReportsComparisonPage() {
                   <SelectItem value="month">{t('filter.type.month')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.value')}</Label>
+            </Field>
+            <Field label={t('filter.value')}>
               <Select value={valueFilter} onValueChange={setValueFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -436,9 +446,8 @@ export default function ReportsComparisonPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.station')}</Label>
+            </Field>
+            <Field label={t('filter.station')}>
               <Select value={station} onValueChange={setStation}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -448,9 +457,8 @@ export default function ReportsComparisonPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.metric')}</Label>
+            </Field>
+            <Field label={t('filter.metric')}>
               <Select value={metric} onValueChange={(v: any) => setMetric(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -462,12 +470,12 @@ export default function ReportsComparisonPage() {
                   <SelectItem value="ph">{t('water.chart.ph')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
+            </Field>
+          </FilterBar>
 
           {/* KPIs with Gauge Charts */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <div className="rounded-xl border bg-background p-3">
+            <SurfacePanel padding="sm">
               <GaugeChart
                 value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.cpue_mean, 0) / (series.length || 1)}
                 min={0}
@@ -475,8 +483,8 @@ export default function ReportsComparisonPage() {
                 label="CPUE"
                 unit="kg/hr"
               />
-            </div>
-            <div className="rounded-xl border bg-background p-3">
+            </SurfacePanel>
+            <SurfacePanel padding="sm">
               <GaugeChart
                 value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.depth_mean, 0) / (series.length || 1)}
                 min={0}
@@ -484,8 +492,8 @@ export default function ReportsComparisonPage() {
                 label="Depth"
                 unit="m"
               />
-            </div>
-            <div className="rounded-xl border bg-background p-3">
+            </SurfacePanel>
+            <SurfacePanel padding="sm">
               <GaugeChart
                 value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.temp_mean, 0) / (series.length || 1)}
                 min={20}
@@ -493,8 +501,8 @@ export default function ReportsComparisonPage() {
                 label="Temp"
                 unit="°C"
               />
-            </div>
-            <div className="rounded-xl border bg-background p-3">
+            </SurfacePanel>
+            <SurfacePanel padding="sm">
               <GaugeChart
                 value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.sal_mean, 0) / (series.length || 1)}
                 min={25}
@@ -502,8 +510,8 @@ export default function ReportsComparisonPage() {
                 label="Salinity"
                 unit="ppt"
               />
-            </div>
-            <div className="rounded-xl border bg-background p-3">
+            </SurfacePanel>
+            <SurfacePanel padding="sm">
               <GaugeChart
                 value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.do_mean, 0) / (series.length || 1)}
                 min={0}
@@ -511,8 +519,8 @@ export default function ReportsComparisonPage() {
                 label="DO"
                 unit="mg/L"
               />
-            </div>
-            <div className="rounded-xl border bg-background p-3">
+            </SurfacePanel>
+            <SurfacePanel padding="sm">
               <GaugeChart
                 value={series.reduce((a: number, b: OverviewSeriesRow) => a + b.ph_mean, 0) / (series.length || 1)}
                 min={6}
@@ -520,7 +528,7 @@ export default function ReportsComparisonPage() {
                 label="pH"
                 unit=""
               />
-            </div>
+            </SurfacePanel>
           </div>
 
           {/* Environment and Top Stations (moved above Trend) */}

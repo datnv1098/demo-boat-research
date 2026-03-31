@@ -1,5 +1,18 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Header, Label, Table, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common';
+import {
+  ChartCard,
+  ErrorState,
+  Field,
+  FilterBar,
+  Header,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SurfacePanel,
+  Table,
+} from '../components/common';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useI18n } from '../lib/i18n';
 import { GaugeChart } from '../components/GaugeChart';
@@ -226,10 +239,9 @@ export default function WaterQualityPage() {
   return (
     <div className="min-h-full pb-8">
       <Header title={t('water.title')} desc={t('water.desc')} sticky exportLabel={t('header.export') + ' .xlsx'} onExport={exportXLSX} />
-      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 my-2">
-        <div>
-          <Label>{t('filter.year')}</Label>
+      {error && <ErrorState message={error} className="mb-3" />}
+      <FilterBar gridClassName="md:grid-cols-4" className="my-2">
+        <Field label={t('filter.year')}>
           <Select value={yearFilter} onValueChange={setYearFilter}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -237,9 +249,8 @@ export default function WaterQualityPage() {
               {filterOptions.years.map((y: string) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <Label>{t('filter.type')}</Label>
+        </Field>
+        <Field label={t('filter.type')}>
           <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -247,9 +258,8 @@ export default function WaterQualityPage() {
               <SelectItem value="month">{t('filter.type.month')}</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <Label>{t('filter.value')}</Label>
+        </Field>
+        <Field label={t('filter.value')}>
           <Select value={valueFilter} onValueChange={setValueFilter}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -257,9 +267,8 @@ export default function WaterQualityPage() {
               {valueOptions.map((v: string) => <SelectItem key={v} value={v}>{v}</SelectItem>)}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <Label>{t('water.zone')}</Label>
+        </Field>
+        <Field label={t('water.zone')}>
           <Select value={zone} onValueChange={setZone}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -267,13 +276,13 @@ export default function WaterQualityPage() {
               {filterOptions.zones.map((z: string) => <SelectItem key={z} value={z}>{z}</SelectItem>)}
             </SelectContent>
           </Select>
-        </div>
-      </div>
+        </Field>
+      </FilterBar>
       
       {/* Gauge Charts with Top 10 Tables Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 my-6">
         {/* Temperature */}
-        <div className="rounded-xl border bg-background p-4">
+        <SurfacePanel className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <GaugeChart
@@ -288,7 +297,7 @@ export default function WaterQualityPage() {
               <div className="text-sm font-semibold mb-2">{t('water.top10')}</div>
               <div className="overflow-auto max-h-[280px]">
                 <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-gray-50 border-b">
+                  <thead className="sticky top-0 bg-muted/70 border-b">
                     <tr>
                       <th className="p-1 text-left">#</th>
                       <th className="p-1 text-right">{t('water.chart.temp')}</th>
@@ -298,7 +307,7 @@ export default function WaterQualityPage() {
                   </thead>
                   <tbody>
                     {top10Data.temp.map((row: TopRow) => (
-                      <tr key={row.rank} className="border-b hover:bg-gray-50">
+                      <tr key={row.rank} className="border-b hover:bg-muted/60">
                         <td className="p-1">{row.rank}</td>
                         <td className="p-1 text-right font-medium">{row.value}°C</td>
                         <td className="p-1">{row.month}</td>
@@ -310,10 +319,10 @@ export default function WaterQualityPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SurfacePanel>
 
         {/* Dissolved Oxygen */}
-        <div className="rounded-xl border bg-background p-4">
+        <SurfacePanel className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <GaugeChart
@@ -328,7 +337,7 @@ export default function WaterQualityPage() {
               <div className="text-sm font-semibold mb-2">{t('water.top10')}</div>
               <div className="overflow-auto max-h-[280px]">
                 <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-gray-50 border-b">
+                  <thead className="sticky top-0 bg-muted/70 border-b">
                     <tr>
                       <th className="p-1 text-left">#</th>
                       <th className="p-1 text-right">{t('water.chart.do')}</th>
@@ -338,7 +347,7 @@ export default function WaterQualityPage() {
                   </thead>
                   <tbody>
                     {top10Data.do.map((row: TopRow) => (
-                      <tr key={row.rank} className="border-b hover:bg-gray-50">
+                      <tr key={row.rank} className="border-b hover:bg-muted/60">
                         <td className="p-1">{row.rank}</td>
                         <td className="p-1 text-right font-medium">{row.value} mg/L</td>
                         <td className="p-1">{row.month}</td>
@@ -350,10 +359,10 @@ export default function WaterQualityPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SurfacePanel>
 
         {/* pH */}
-        <div className="rounded-xl border bg-background p-4">
+        <SurfacePanel className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <GaugeChart
@@ -368,7 +377,7 @@ export default function WaterQualityPage() {
               <div className="text-sm font-semibold mb-2">{t('water.top10')}</div>
               <div className="overflow-auto max-h-[280px]">
                 <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-gray-50 border-b">
+                  <thead className="sticky top-0 bg-muted/70 border-b">
                     <tr>
                       <th className="p-1 text-left">#</th>
                       <th className="p-1 text-right">{t('water.chart.ph')}</th>
@@ -378,7 +387,7 @@ export default function WaterQualityPage() {
                   </thead>
                   <tbody>
                     {top10Data.ph.map((row: TopRow) => (
-                      <tr key={row.rank} className="border-b hover:bg-gray-50">
+                      <tr key={row.rank} className="border-b hover:bg-muted/60">
                         <td className="p-1">{row.rank}</td>
                         <td className="p-1 text-right font-medium">{row.value}</td>
                         <td className="p-1">{row.month}</td>
@@ -390,10 +399,10 @@ export default function WaterQualityPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SurfacePanel>
 
         {/* Salinity */}
-        <div className="rounded-xl border bg-background p-4">
+        <SurfacePanel className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <GaugeChart
@@ -408,7 +417,7 @@ export default function WaterQualityPage() {
               <div className="text-sm font-semibold mb-2">{t('water.top10')}</div>
               <div className="overflow-auto max-h-[280px]">
                 <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-gray-50 border-b">
+                  <thead className="sticky top-0 bg-muted/70 border-b">
                     <tr>
                       <th className="p-1 text-left">#</th>
                       <th className="p-1 text-right">{t('water.chart.salinity')}</th>
@@ -418,7 +427,7 @@ export default function WaterQualityPage() {
                   </thead>
                   <tbody>
                     {top10Data.salinity.map((row: TopRow) => (
-                      <tr key={row.rank} className="border-b hover:bg-gray-50">
+                      <tr key={row.rank} className="border-b hover:bg-muted/60">
                         <td className="p-1">{row.rank}</td>
                         <td className="p-1 text-right font-medium">{row.value} PSU</td>
                         <td className="p-1">{row.month}</td>
@@ -430,11 +439,10 @@ export default function WaterQualityPage() {
               </div>
             </div>
           </div>
-        </div>
+        </SurfacePanel>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-        <div className="rounded-xl border bg-background p-3">
-          <div className="text-sm font-medium mb-2">{t('water.radarChart')}</div>
+        <ChartCard title={t('water.radarChart')}>
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius={80} data={radarData}>
@@ -445,9 +453,8 @@ export default function WaterQualityPage() {
               </RadarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-        <div className="rounded-xl border bg-background p-3">
-          <div className="text-sm font-medium mb-2">{t('water.lineChart')}</div>
+        </ChartCard>
+        <ChartCard title={t('water.lineChart')}>
           <div style={{ height: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trendByMonth}>
@@ -462,16 +469,15 @@ export default function WaterQualityPage() {
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </ChartCard>
       </div>
-      <div className="rounded-xl border bg-background p-3 mt-6">
-        <div className="text-sm font-medium mb-2">{t('water.alertTable')}</div>
+      <ChartCard title={t('water.alertTable')} className="mt-6">
         <Table
           columns={tableColumns}
           rows={alertRows.map((r) => [r.Month, r.Zone, r.Temp, r.DO, r.pH, r.Salinity])}
           minHeight={420}
         />
-      </div>
+      </ChartCard>
     </div>
   );
 }

@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Map as MapIcon } from 'lucide-react'
-import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
+import {
+  ErrorState,
+  Field,
+  FilterBar,
+  Header,
+  Input,
+  KpiCard,
+  LoadingState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SurfacePanel,
+} from '../components/common'
 import { useI18n } from '../lib/i18n'
 import { ThailandMap } from '../components/ThailandMap'
 import { fetchApiRows } from '../lib/mockApi'
@@ -551,56 +565,49 @@ export default function HotspotMapPage() {
   return (
     <div>
       <Header title={t('hot.title')} desc={t('hot.desc')} icon={<MapIcon className="h-6 w-6" />} onExport={exportPDF} exportLabel={`${t('header.export')} PDF`} sticky={true} />
-      {loading && <div className="text-sm text-muted-foreground">{t('loading.demo')}</div>}
-      {error && <div className="text-sm text-red-600">{error}</div>}
+      {loading && <LoadingState label={t('loading.demo')} className="mb-3" />}
+      {error && <ErrorState message={error} className="mb-3" />}
       {!loading && !error && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border bg-card px-4 py-3">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('hot.kpi.filteredCpue')}</div>
-              <div className="text-2xl font-semibold">{summary.filteredCpue.toFixed(2)}</div>
-              <div className="text-xs text-muted-foreground">{summary.haulCount} {t('hot.kpi.haulFiltered')}</div>
-            </div>
-            <div className="rounded-lg border bg-card px-4 py-3">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('hot.kpi.activeCells')}</div>
-              <div className="text-2xl font-semibold">{summary.activeCells}</div>
-              <div className="text-xs text-muted-foreground">{t('hot.kpi.weighted')}</div>
-            </div>
-            <div className="rounded-lg border bg-card px-4 py-3">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('hot.kpi.hotspotCells')}</div>
-              <div className="text-2xl font-semibold">{hotspotCells.length}</div>
-              <div className="text-xs text-muted-foreground">{t('hot.threshold')} {percentileMode}</div>
-            </div>
-            <div className="rounded-lg border bg-card px-4 py-3">
-              <div className="text-xs text-muted-foreground uppercase tracking-wide">{t('hot.kpi.topHotspot')}</div>
-              <div className="text-2xl font-semibold">{summary.topCell ? summary.topCell.cpue.toFixed(2) : '0.00'}</div>
-              <div className="text-xs text-muted-foreground">{summary.topCell ? summary.topCell.id : t('hot.kpi.noCell')}</div>
-            </div>
+            <KpiCard
+              label={t('hot.kpi.filteredCpue')}
+              value={summary.filteredCpue.toFixed(2)}
+              hint={`${summary.haulCount} ${t('hot.kpi.haulFiltered')}`}
+            />
+            <KpiCard
+              label={t('hot.kpi.activeCells')}
+              value={summary.activeCells}
+              hint={t('hot.kpi.weighted')}
+            />
+            <KpiCard
+              label={t('hot.kpi.hotspotCells')}
+              value={hotspotCells.length}
+              hint={`${t('hot.threshold')} ${percentileMode}`}
+            />
+            <KpiCard
+              label={t('hot.kpi.topHotspot')}
+              value={summary.topCell ? summary.topCell.cpue.toFixed(2) : '0.00'}
+              hint={summary.topCell ? summary.topCell.id : t('hot.kpi.noCell')}
+            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div>
-              <Label>{t('filter.dateFrom')}</Label>
-              <input
+          <FilterBar gridClassName="md:grid-cols-4">
+            <Field label={t('filter.dateFrom')} hint={fromDate || t('common.all')}>
+              <Input
                 type="date"
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               />
-              <div className="mt-1 text-xs text-muted-foreground">{fromDate || t('common.all')}</div>
-            </div>
-            <div>
-              <Label>{t('filter.dateTo')}</Label>
-              <input
+            </Field>
+            <Field label={t('filter.dateTo')} hint={toDate || t('common.all')}>
+              <Input
                 type="date"
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
               />
-              <div className="mt-1 text-xs text-muted-foreground">{toDate || t('common.all')}</div>
-            </div>
-            <div>
-              <Label>{t('hot.zone')}</Label>
+            </Field>
+            <Field label={t('hot.zone')}>
               <Select value={zone} onValueChange={setZone}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -608,9 +615,8 @@ export default function HotspotMapPage() {
                   {filterOptions.zones.map((z: string, idx: number) => <SelectItem key={idx} value={String(z)}>{String(z)}</SelectItem>)}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('hot.percentile')}</Label>
+            </Field>
+            <Field label={t('hot.percentile')}>
               <Select value={percentileMode} onValueChange={(v: any) => setPercentileMode(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -618,17 +624,19 @@ export default function HotspotMapPage() {
                   <SelectItem value="P95">P95</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-          <ThailandMap
-            hotspotData={hotspotCells as any}
-            stationData={filtered}
-            month={'all'}
-            blacklistLinks={blacklistLinks}
-            percentileThreshold={hotspotThreshold}
-            hotspotStations={hotspotStations}
-            gridCells={gridCells as any}
-          />
+            </Field>
+          </FilterBar>
+          <SurfacePanel padding="sm" className="overflow-hidden">
+            <ThailandMap
+              hotspotData={hotspotCells as any}
+              stationData={filtered}
+              month={'all'}
+              blacklistLinks={blacklistLinks}
+              percentileThreshold={hotspotThreshold}
+              hotspotStations={hotspotStations}
+              gridCells={gridCells as any}
+            />
+          </SurfacePanel>
         </div>
       )}
     </div>

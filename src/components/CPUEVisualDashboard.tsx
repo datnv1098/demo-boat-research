@@ -204,10 +204,10 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
     }
 
     return (
-        <div className="bg-[#f0f7ff] p-6 rounded-3xl border border-[#0056b3] shadow-2xl overflow-hidden font-sans max-w-7xl mx-auto my-8">
+        <div className="mx-auto my-8 max-w-7xl overflow-hidden rounded-[2rem] border border-primary/20 bg-card/94 p-6 shadow-shell backdrop-blur-sm font-sans">
             {/* Top Navigation / Filters */}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-                <div className="flex bg-white rounded-xl shadow-sm border p-1 overflow-hidden">
+                <div className="flex overflow-hidden rounded-xl border border-border/70 bg-white/85 p-1 shadow-xs">
                     {[
                         { Icon: MapPin, label: 'Area' },
                         { Icon: Target, label: 'Zone' },
@@ -216,8 +216,8 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                         { Icon: ArrowDownUp, label: 'Depth' },
                         { Icon: Calendar, label: 'Date' }
                     ].map((item, i) => (
-                        <button key={i} className="flex items-center gap-2 px-4 py-2 hover:bg-slate-50 border-r last:border-0 transition-colors">
-                            <item.Icon className="h-5 w-5 text-blue-800" />
+                        <button key={i} className="flex items-center gap-2 border-r px-4 py-2 transition-colors hover:bg-muted/55 last:border-0">
+                            <item.Icon className="h-5 w-5 text-primary" />
                             <ChevronDown className="h-4 w-4 text-slate-400" />
                         </button>
                     ))}
@@ -240,7 +240,7 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
 
                 {/* Left Measurement Box */}
                 <div className="col-span-12 lg:col-span-4 space-y-8">
-                    <div className="bg-white rounded-[2rem] p-8 shadow-xl border-blue-600 relative overflow-hidden group hover:shadow-2xl transition-all duration-500">
+                    <div className="group relative overflow-hidden rounded-[2rem] border border-primary/15 bg-white/95 p-8 shadow-panel transition-all duration-500 hover:shadow-shell">
                         <div className="absolute top-0 right-0 p-4 opacity-5">
                             <Fish className="h-32 w-32 rotate-12" />
                         </div>
@@ -251,34 +251,34 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                         />
                         <div className="flex justify-between items-end border-t border-slate-100 pt-6">
                             <div>
-                                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Mean Weight</div>
-                                <div className="text-4xl font-black text-blue-900 leading-none">{summaryStats.meanWeight.toFixed(2)} <span className="text-xl">kg</span></div>
+                                <div className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Mean Weight</div>
+                                <div className="text-4xl font-black leading-none text-primary">{summaryStats.meanWeight.toFixed(2)} <span className="text-xl">kg</span></div>
                             </div>
                             <div className="text-right">
-                                <div className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Records</div>
-                                <div className="text-xl font-bold text-green-600">{summaryStats.totalRecords.toLocaleString()}</div>
+                                <div className="mb-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Records</div>
+                                <div className="text-xl font-bold text-success">{summaryStats.totalRecords.toLocaleString()}</div>
                             </div>
                         </div>
                     </div>
 
                     {/* Lmean Distribution */}
-                    <div className="bg-white rounded-[2rem] p-8 shadow-xl border-blue-400">
+                    <div className="rounded-[2rem] border border-info/20 bg-white/95 p-8 shadow-panel">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-extrabold text-blue-900 tracking-tight italic">Lmean Distribution</h3>
-                            <div className="bg-blue-50 p-2 rounded-lg"><Target className="h-5 w-5 text-blue-600" /></div>
+                            <h3 className="text-xl font-extrabold tracking-tight italic text-primary">Lmean Distribution</h3>
+                            <div className="rounded-lg bg-primary/10 p-2"><Target className="h-5 w-5 text-primary" /></div>
                         </div>
                         <div className="h-40 relative">
                             <Chart options={lmeanOptions} series={lmeanSeries} type="area" height="100%" />
                             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="w-0.5 h-full bg-blue-600/30 border-r border-dashed border-blue-600"></div>
+                                <div className="h-full w-0.5 border-r border-dashed border-primary/35 bg-primary/25"></div>
                             </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4 mt-6">
-                            <div className="bg-slate-50 p-4 rounded-2xl text-center">
-                                <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Median</div>
-                                <div className="text-2xl font-black text-blue-900">{summaryStats.medianWeight.toFixed(2)}</div>
+                            <div className="rounded-2xl bg-muted/60 p-4 text-center">
+                                <div className="mb-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Median</div>
+                                <div className="text-2xl font-black text-primary">{summaryStats.medianWeight.toFixed(2)}</div>
                             </div>
-                            <div className="bg-blue-900 p-4 rounded-2xl text-center text-white">
+                            <div className="rounded-2xl bg-primary p-4 text-center text-primary-foreground">
                                 <div className="text-[10px] text-white/60 uppercase font-black tracking-widest mb-1">Max</div>
                                 <div className="text-2xl font-black">{summaryStats.maxWeight.toFixed(2)}</div>
                             </div>
@@ -290,15 +290,15 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                 <div className="col-span-12 lg:col-span-8 space-y-8">
 
                     {/* Main Bar Chart */}
-                    <div className="bg-white rounded-[2.5rem] p-10 shadow-xl relative border-blue-800">
+                    <div className="relative rounded-[2.5rem] border border-primary/20 bg-white/95 p-10 shadow-panel">
                         <div className="flex justify-between items-center mb-10">
                             <div>
-                                <h2 className="text-3xl font-black text-blue-900 tracking-tighter italic">CPUE TREND ANALYSIS</h2>
+                                <h2 className="text-3xl font-black tracking-tighter italic text-primary">CPUE TREND ANALYSIS</h2>
                                 <p className="text-slate-400 font-medium">Catch Per Unit Effort by Quarterly Periods</p>
                             </div>
                             <div className="flex gap-2">
-                                <div className="h-3 w-8 bg-blue-800 rounded-full"></div>
-                                <div className="h-3 w-3 bg-blue-200 rounded-full"></div>
+                                <div className="h-3 w-8 rounded-full bg-primary"></div>
+                                <div className="h-3 w-3 rounded-full bg-primary/20"></div>
                             </div>
                         </div>
                         <div className="h-80">
@@ -307,7 +307,7 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
                     </div>
 
                     {/* Leaderboard Section */}
-                    <div className="bg-blue-900 rounded-[2rem] p-8 shadow-xl text-white overflow-hidden relative">
+                    <div className="relative overflow-hidden rounded-[2rem] bg-primary p-8 text-primary-foreground shadow-panel">
                         <div className="absolute -bottom-4 -right-4 opacity-5">
                             <Target className="h-40 w-40" />
                         </div>
@@ -335,15 +335,15 @@ export function CPUEVisualDashboard({ data }: CPUEVisualDashboardProps) {
             </div>
 
             {/* Separate Full Width Variation by Zone Section */}
-            <div className="mt-8 bg-white rounded-[2rem] p-8 shadow-xl border border-blue-600">
+            <div className="mt-8 rounded-[2rem] border border-primary/20 bg-white/95 p-8 shadow-panel">
                 <div className="flex justify-between items-center mb-6">
                     <div>
-                        <h3 className="text-2xl font-black text-blue-900 italic uppercase">Variation by Area & Zone</h3>
+                        <h3 className="text-2xl font-black italic uppercase text-primary">Variation by Area & Zone</h3>
                         <p className="text-slate-400 font-medium text-sm">Detailed CPUE Distribution across research fishing areas</p>
                     </div>
                     <div className="flex gap-4 items-center">
                         <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-blue-600"></div>
+                            <div className="h-3 w-3 rounded-full bg-primary"></div>
                             <span className="text-xs font-bold text-slate-500 uppercase tracking-tighter">Current Period</span>
                         </div>
                     </div>

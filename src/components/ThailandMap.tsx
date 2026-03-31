@@ -700,7 +700,7 @@ export function ThailandMap({
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">{t('map.popup.cpue') || 'CPUE'}:</span>
-                        <span className="font-medium text-red-600">{station.cpue.toFixed(2)} kg/hr</span>
+                        <span className="font-medium text-danger">{station.cpue.toFixed(2)} kg/hr</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">{t('map.popup.zone') || 'Zone'}:</span>

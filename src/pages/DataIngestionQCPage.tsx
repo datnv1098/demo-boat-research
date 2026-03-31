@@ -1,6 +1,22 @@
 import { useEffect, useState, useMemo } from 'react'
 import { ClipboardCheck } from 'lucide-react'
-import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
+import {
+  Button,
+  ChartCard,
+  ErrorState,
+  Field,
+  FilterBar,
+  Header,
+  InlineNotice,
+  LoadingState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+  Table,
+} from '../components/common'
 import { useI18n } from '../lib/i18n'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
@@ -486,13 +502,12 @@ export default function DataIngestionQCPage() {
   return (
     <div>
       <Header title={t('ing.title')} desc={t('ing.desc')} icon={<ClipboardCheck className="h-6 w-6" />} onExport={onTopbarExport} sticky={true} />
-      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      {loading && !error && <div className="text-sm text-muted-foreground">{t('loading.api')}</div>}
+      {error && <ErrorState message={error} className="mb-3" />}
+      {loading && !error && <LoadingState label={t('loading.api')} className="mb-3" />}
       {!loading && !error && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <Label>{t('filter.year')}</Label>
+          <FilterBar gridClassName="md:grid-cols-3">
+            <Field label={t('filter.year')}>
               <Select value={yearFilter} onValueChange={setYearFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -502,9 +517,8 @@ export default function DataIngestionQCPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.type')}</Label>
+            </Field>
+            <Field label={t('filter.type')}>
               <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -512,9 +526,8 @@ export default function DataIngestionQCPage() {
                   <SelectItem value="month">{t('filter.type.month')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.value')}</Label>
+            </Field>
+            <Field label={t('filter.value')}>
               <Select value={valueFilter} onValueChange={setValueFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -524,13 +537,12 @@ export default function DataIngestionQCPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
+            </Field>
+          </FilterBar>
 
           {/* Charts: Status Pie and Top Issues Column */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">{t('ing.chart.status')}</div>
+            <ChartCard title={t('ing.chart.status')}>
               <div style={{ height: 260 }}>
                 <Chart
                   type="pie"
@@ -575,9 +587,8 @@ export default function DataIngestionQCPage() {
                   } as ApexOptions}
                 />
               </div>
-            </div>
-            <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">{t('ing.chart.topIssues')}</div>
+            </ChartCard>
+            <ChartCard title={t('ing.chart.topIssues')}>
               <div style={{ height: 320 }}>
                 <Chart
                   type="bar"
@@ -694,12 +705,11 @@ export default function DataIngestionQCPage() {
                   } as ApexOptions}
                 />
               </div>
-            </div>
+            </ChartCard>
           </div>
 
           {/* Monthly Status (stacked) */}
-          <div className="rounded-xl border bg-background p-3">
-            <div className="text-sm font-medium mb-2">สถานะ QC ตามเดือน (Monthly)</div>
+          <ChartCard title="สถานะ QC ตามเดือน (Monthly)">
             <div style={{ height: 280 }}>
               <Chart
                 type="bar"
@@ -774,11 +784,13 @@ export default function DataIngestionQCPage() {
                 } as ApexOptions}
               />
             </div>
-          </div>
+          </ChartCard>
 
           <div className="text-sm font-medium mt-4">บันทึกการตรวจสอบคุณภาพ (QC Logs)</div>
           {acceptError && (
-            <div className="text-red-600 text-xs mb-2">{acceptError}</div>
+            <InlineNotice tone="danger" className="mb-2 text-xs" title="Accept warning failed">
+              {acceptError}
+            </InlineNotice>
           )}
           <div>
             <Table
@@ -791,10 +803,15 @@ export default function DataIngestionQCPage() {
                 .map((l) => [
                   l.sampleId,
                   l.mainArea || '—',
-                  l.status === 'ok' ? '✅ ผ่าน'
-                    : l.status === 'warn' ? '⚠️ คำเตือน'
-                    : l.status === 'accepted' ? '✔️ Accepted'
-                    : '❌ Error',
+                  l.status === 'ok' ? (
+                    <StatusBadge tone="success">Passed</StatusBadge>
+                  ) : l.status === 'warn' ? (
+                    <StatusBadge tone="warning">Warning</StatusBadge>
+                  ) : l.status === 'accepted' ? (
+                    <StatusBadge tone="info">Accepted</StatusBadge>
+                  ) : (
+                    <StatusBadge tone="danger">Error</StatusBadge>
+                  ),
                   l.issues.length > 0 ? (
                     <ul className="list-disc pl-4">
                       {l.issues.map((msg: string, idx: number) => (<li key={idx}>{msg}</li>))}
@@ -803,13 +820,14 @@ export default function DataIngestionQCPage() {
                     <span className="text-muted-foreground">ไม่พบปัญหา</span>
                   ),
                   l.status === 'warn' ? (
-                    <button
+                    <Button
                       onClick={() => acceptWarning(l)}
                       disabled={accepting.has(l.sampleId)}
-                      className="px-3 py-1 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      variant="default"
+                      size="sm"
                     >
                       {accepting.has(l.sampleId) ? 'กำลังบันทึก...' : 'Accept Warning'}
-                    </button>
+                    </Button>
                   ) : null,
                 ])}
             />
@@ -819,5 +837,4 @@ export default function DataIngestionQCPage() {
     </div>
   )
 }
-
 

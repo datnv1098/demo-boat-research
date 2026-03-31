@@ -1,6 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Users } from 'lucide-react'
-import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Input, Button } from '../components/common'
+import {
+  ActionBar,
+  Button,
+  Field,
+  FilterBar,
+  Header,
+  InlineNotice,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+  Table,
+} from '../components/common'
 import { useI18n } from '../lib/i18n'
 
 interface AppUser {
@@ -157,16 +172,14 @@ export default function UserManagementPage() {
       <Header title={t('users.title')} desc={t('users.desc')} icon={<Users className="h-6 w-6" />} onExport={onTopbarExport} sticky={true} />
       <div className="space-y-4">
         {users.length === 0 && (
-          <div className="text-sm text-orange-600">{t('users.noUsers')}</div>
+          <InlineNotice tone="warning">{t('users.noUsers')}</InlineNotice>
         )}
         {/* Filters & actions */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <div className="md:col-span-2">
-            <Label>{t('filter.search')}</Label>
+        <FilterBar gridClassName="md:grid-cols-5">
+          <Field label={t('filter.search')} className="md:col-span-2">
             <Input placeholder={t('users.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} />
-          </div>
-          <div>
-            <Label>{t('users.role')}</Label>
+          </Field>
+          <Field label={t('users.role')}>
             <Select value={role} onValueChange={(v: any) => setRole(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -174,9 +187,8 @@ export default function UserManagementPage() {
                 {filterOptions.roles.map((r) => (<SelectItem key={r} value={r}>{r}</SelectItem>))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label>{t('users.office')}</Label>
+          </Field>
+          <Field label={t('users.office')}>
             <Select value={office} onValueChange={(v: any) => setOffice(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -184,9 +196,8 @@ export default function UserManagementPage() {
                 {filterOptions.offices.map((o) => (<SelectItem key={o} value={o}>{o}</SelectItem>))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label>{t('users.filterStatus')}</Label>
+          </Field>
+          <Field label={t('users.filterStatus')}>
             <Select value={status} onValueChange={(v: any) => setStatus(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -194,12 +205,15 @@ export default function UserManagementPage() {
                 {filterOptions.statuses.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}
               </SelectContent>
             </Select>
+          </Field>
+        </FilterBar>
+        <ActionBar>
+          <div />
+          <div className="flex gap-2">
+            <Button onClick={addUser}>{t('users.addUser')}</Button>
+            <Button variant="subtle" onClick={() => setUsers(generateDemoUsers(50))}>{t('users.loadDemo')}</Button>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={addUser}>{t('users.addUser')}</Button>
-          <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => setUsers(generateDemoUsers(50))}>{t('users.loadDemo')}</Button>
-        </div>
+        </ActionBar>
 
         {/* Users table */}
         <Table
@@ -216,12 +230,12 @@ export default function UserManagementPage() {
                 </SelectContent>
               </Select>
             </div>,
-            <button key={u.id+"o"} className="underline text-blue-600" onClick={() => changeOffice(u)}>{u.office}</button>,
-            <span className={u.status === 'Active' ? 'text-green-700' : 'text-red-600'}>{u.status}</span>,
+            <button key={u.id+"o"} className="underline text-primary" onClick={() => changeOffice(u)}>{u.office}</button>,
+            u.status === 'Active' ? <StatusBadge tone="success">{u.status}</StatusBadge> : <StatusBadge tone="danger">{u.status}</StatusBadge>,
             u.lastLogin || '-',
             <div className="flex gap-2">
-              <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => toggleLock(u)}>{u.status === 'Active' ? 'Lock' : 'Unlock'}</Button>
-              <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={() => resetPassword(u)}>Reset</Button>
+              <Button variant="subtle" onClick={() => toggleLock(u)}>{u.status === 'Active' ? 'Lock' : 'Unlock'}</Button>
+              <Button variant="subtle" onClick={() => resetPassword(u)}>Reset</Button>
             </div>
           ]))}
           maxHeight="calc(100vh - 450px)"
@@ -231,5 +245,3 @@ export default function UserManagementPage() {
     </div>
   )
 }
-
-

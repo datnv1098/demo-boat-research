@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Activity } from 'lucide-react'
-import { Header, Table, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/common'
+import {
+  ChartCard,
+  ErrorState,
+  Field,
+  FilterBar,
+  Header,
+  LoadingState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Table,
+} from '../components/common'
 import { useI18n } from '../lib/i18n'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
@@ -334,13 +347,12 @@ export default function CPUEPage() {
   return (
     <div>
       <Header title={t('cpue.title')} desc={t('cpue.desc')} icon={<Activity className="h-6 w-6" />} sticky={true} />
-      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      {loading && !error && <div className="text-sm text-muted-foreground">{t('loading.api')}</div>}
+      {error && <ErrorState message={error} className="mb-3" />}
+      {loading && !error && <LoadingState label={t('loading.api')} className="mb-3" />}
       {!loading && !error && (
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
-            <div>
-              <Label>{t('filter.year')}</Label>
+          <FilterBar gridClassName="md:grid-cols-6">
+            <Field label={t('filter.year')}>
               <Select value={yearFilter} onValueChange={setYearFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -348,9 +360,8 @@ export default function CPUEPage() {
                   {filterOptions.years.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.type')}</Label>
+            </Field>
+            <Field label={t('filter.type')}>
               <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -358,9 +369,8 @@ export default function CPUEPage() {
                   <SelectItem value="month">{t('filter.type.month')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.value')}</Label>
+            </Field>
+            <Field label={t('filter.value')}>
               <Select value={valueFilter} onValueChange={setValueFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -368,9 +378,8 @@ export default function CPUEPage() {
                   {valueOptions.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.area')}</Label>
+            </Field>
+            <Field label={t('filter.area')}>
               <Select defaultValue={area} onValueChange={setArea}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -378,9 +387,8 @@ export default function CPUEPage() {
                   {filterOptions.areas.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('hot.zone')}</Label>
+            </Field>
+            <Field label={t('hot.zone')}>
               <Select defaultValue={zone} onValueChange={setZone}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -388,9 +396,8 @@ export default function CPUEPage() {
                   {filterOptions.zones.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('hot.depth')}</Label>
+            </Field>
+            <Field label={t('hot.depth')}>
               <Select defaultValue={depthClass} onValueChange={setDepthClass}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -398,12 +405,11 @@ export default function CPUEPage() {
                   {filterOptions.depthClasses.map((m: string) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
+            </Field>
+          </FilterBar>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">{t('cpue.chart.byPeriod')}</div>
+            <ChartCard title={t('cpue.chart.byPeriod')}>
               <div style={{ height: 260 }}>
                 <Chart
                   type="line"
@@ -496,9 +502,8 @@ export default function CPUEPage() {
                   } as ApexOptions}
                 />
               </div>
-            </div>
-            <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">{t('cpue.chart.byDepth')}</div>
+            </ChartCard>
+            <ChartCard title={t('cpue.chart.byDepth')}>
               <div style={{ height: 260 }}>
                 <Chart
                   type="bar"
@@ -582,11 +587,10 @@ export default function CPUEPage() {
                   } as ApexOptions}
                 />
               </div>
-            </div>
+            </ChartCard>
           </div>
 
-          <div className="rounded-xl border bg-background p-3">
-            <div className="text-sm font-medium mb-2">{t('cpue.chart.distribution')}</div>
+          <ChartCard title={t('cpue.chart.distribution')}>
             <div style={{ height: 320 }}>
               <Chart
                 type="bar"
@@ -672,10 +676,9 @@ export default function CPUEPage() {
                 } as ApexOptions}
               />
             </div>
-          </div>
+          </ChartCard>
 
-          <div className="rounded-xl border bg-background p-3">
-            <div className="text-sm font-medium mb-2">{t('cpue.chart.byArea')}</div>
+          <ChartCard title={t('cpue.chart.byArea')}>
             <div style={{ height: 320 }}>
               <Chart
                 type="line"
@@ -764,7 +767,7 @@ export default function CPUEPage() {
                 } as ApexOptions}
               />
             </div>
-          </div>
+          </ChartCard>
           <Table
             columns={["Link", "Area", "Zone", "Depth", "Month", "Tow(min)", "Catch(kg)", "CPUE", "Outlier"]}
             maxHeight={400}

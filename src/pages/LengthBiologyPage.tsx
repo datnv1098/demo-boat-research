@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Ruler } from 'lucide-react'
-import { Header, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Button } from '../components/common'
-import { Table } from '../components/common'
+import {
+  Button,
+  ChartCard,
+  ErrorState,
+  Field,
+  FilterBar,
+  Header,
+  InlineNotice,
+  LoadingState,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Table,
+} from '../components/common'
 import { useI18n } from '../lib/i18n'
 import Chart from 'react-apexcharts'
 import { ApexOptions } from 'apexcharts'
@@ -301,22 +315,21 @@ export default function LengthBiologyPage() {
   return (
     <div>
       <Header title={t('len.title')} desc={t('len.desc')} icon={<Ruler className="h-6 w-6" />} sticky={true} />
-      {error && <div className="text-red-600 text-sm mb-3">{error}</div>}
-      {loading && !error && <div className="text-sm text-muted-foreground">{t('loading.api')}</div>}
+      {error && <ErrorState message={error} className="mb-3" />}
+      {loading && !error && <LoadingState label={t('loading.api')} className="mb-3" />}
       {!loading && !error && (
         <div className="space-y-8">
           {/* Rich Visual Dashboard */}
           <CPUEVisualDashboard data={filtered} />
 
           {!hasRealLengthData && (
-            <div className="rounded-xl border border-amber-300 bg-amber-50 text-amber-800 text-sm p-3">
+            <InlineNotice tone="warning">
               {t('len.warn.proxyMode')}
-            </div>
+            </InlineNotice>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <div>
-              <Label>{t('filter.year')}</Label>
+          <FilterBar gridClassName="md:grid-cols-5">
+            <Field label={t('filter.year')}>
               <Select value={yearFilter} onValueChange={setYearFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -324,9 +337,8 @@ export default function LengthBiologyPage() {
                   {filterOptions.years.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.type')}</Label>
+            </Field>
+            <Field label={t('filter.type')}>
               <Select value={typeFilter} onValueChange={(v: 'previous' | 'month') => setTypeFilter(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -334,9 +346,8 @@ export default function LengthBiologyPage() {
                   <SelectItem value="month">{t('filter.type.month')}</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.value')}</Label>
+            </Field>
+            <Field label={t('filter.value')}>
               <Select value={valueFilter} onValueChange={setValueFilter}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -344,9 +355,8 @@ export default function LengthBiologyPage() {
                   {valueOptions.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('filter.species')}</Label>
+            </Field>
+            <Field label={t('filter.species')}>
               <Select defaultValue={species} onValueChange={setSpecies}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -354,9 +364,8 @@ export default function LengthBiologyPage() {
                   {filterOptions.species.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-            <div>
-              <Label>{t('hot.zone')}</Label>
+            </Field>
+            <Field label={t('hot.zone')}>
               <Select defaultValue={zone} onValueChange={setZone}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -364,12 +373,11 @@ export default function LengthBiologyPage() {
                   {filterOptions.zones.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
+            </Field>
+          </FilterBar>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">{hasRealLengthData ? t('len.chart.histogram') : t('len.chart.proxyHistogram')}</div>
+            <ChartCard title={hasRealLengthData ? t('len.chart.histogram') : t('len.chart.proxyHistogram')}>
               <div style={{ height: 300 }}>
                 <Chart
                   type="bar"
@@ -465,10 +473,9 @@ export default function LengthBiologyPage() {
                   } as ApexOptions}
                 />
               </div>
-            </div>
+            </ChartCard>
 
-            <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">{t('len.chart.lmeanByZone')}</div>
+            <ChartCard title={t('len.chart.lmeanByZone')}>
               <div style={{ height: 260 }}>
                 <Chart
                   type="bar"
@@ -552,12 +559,11 @@ export default function LengthBiologyPage() {
                   } as ApexOptions}
                 />
               </div>
-            </div>
+            </ChartCard>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-xl border bg-background p-3">
-              <div className="text-sm font-medium mb-2">{t('len.chart.lmeanByMonth')}</div>
+            <ChartCard title={t('len.chart.lmeanByMonth')}>
               <div style={{ height: 260 }}>
                 <Chart
                   type="line"
@@ -646,21 +652,20 @@ export default function LengthBiologyPage() {
                   } as ApexOptions}
                 />
               </div>
-            </div>
-            <div className="rounded-xl border bg-background p-3 flex flex-col">
-              <div className="text-sm font-medium mb-2">{t('len.chart.bioIndices')}</div>
+            </ChartCard>
+            <ChartCard title={t('len.chart.bioIndices')} className="flex flex-col">
               <div className="space-y-2">
                 <div className="flex justify-between"><span>Lmean:</span><span className="font-medium">{bioStats.lmean.toFixed(2)} cm</span></div>
                 <div className="flex justify-between"><span>L95:</span><span className="font-medium">{bioStats.l95.toFixed(2)} cm</span></div>
-                <div className="flex justify-between"><span>%&lt;Lm50:</span><span className={`font-medium ${warning ? 'text-orange-600' : ''}`}>{bioStats.pctJuvenile.toFixed(2)}%</span></div>
+                <div className="flex justify-between"><span>%&lt;Lm50:</span><span className={`font-medium ${warning ? 'text-warning' : ''}`}>{bioStats.pctJuvenile.toFixed(2)}%</span></div>
                 <div className="flex justify-between"><span>LFI:</span><span className="font-medium">{bioStats.lfi.toFixed(3)}</span></div>
-                {warning && <div className="text-orange-600 text-sm font-medium">{t('len.warn.juvenile')}</div>}
+                {warning && <div className="text-sm font-medium text-warning">{t('len.warn.juvenile')}</div>}
               </div>
               <div className="mt-4 flex-1" />
               <div className="pt-2 flex justify-end">
-                <Button className="bg-gray-100 text-gray-700 hover:bg-gray-200" onClick={exportBioPdf}>{t('header.export')} PDF</Button>
+                <Button variant="subtle" onClick={exportBioPdf}>{t('header.export')} PDF</Button>
               </div>
-            </div>
+            </ChartCard>
           </div>
 
           {/* Details table */}
@@ -670,15 +675,14 @@ export default function LengthBiologyPage() {
               return [r.link, r.speciesName, r.zone, r.monthLabel, s.lmean.toFixed(2), s.l95.toFixed(2), s.pctJuvenile.toFixed(2) + '%']
             })
             return (
-              <div className="rounded-xl border bg-background p-3">
-                <div className="text-sm font-medium mb-2">{t('len.chart.details')}</div>
+              <ChartCard title={t('len.chart.details')}>
                 <Table
                   columns={["Link", "Species", "Zone", "Month", "Lmean", "L95", "%<Lm50"]}
                   maxHeight={320}
                   minHeight="420px"
                   rows={details.slice(0, 100)}
                 />
-              </div>
+              </ChartCard>
             )
           })()}
         </div>
