@@ -33,7 +33,7 @@ export function PageHeader({
         className={cn(
           'mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between',
           sticky &&
-            'sticky top-[var(--app-header-height)] z-30 rounded-b-2xl bg-background/92 pb-4 pt-1 backdrop-blur-sm',
+            'sticky top-[var(--app-page-header-top)] z-30 rounded-b-2xl bg-background/92 pb-4 pt-1 backdrop-blur-sm',
         )}
       >
         <div className="min-w-0">

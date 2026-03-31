@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,7 @@ type AppShellProps = {
   onNavigate: (id: string) => void
   lang: string
   setLang: (lang: any) => void
+  pageIntro?: React.ReactNode
   children: React.ReactNode
 }
 
@@ -35,15 +36,70 @@ export function AppShell({
   onNavigate,
   lang,
   setLang,
+  pageIntro,
   children,
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const shellRef = useRef<HTMLDivElement | null>(null)
+  const mainRef = useRef<HTMLElement | null>(null)
+  const pageIntroRef = useRef<HTMLDivElement | null>(null)
+  const pageContentRef = useRef<HTMLDivElement | null>(null)
+  const frameRef = useRef<number | null>(null)
 
   const sidebarWidth = useMemo(
     () => (collapsed ? 'var(--app-sidebar-width-collapsed)' : 'var(--app-sidebar-width)'),
     [collapsed],
   )
+
+  useEffect(() => {
+    const shell = shellRef.current
+    const main = mainRef.current
+    const pageContent = pageContentRef.current
+
+    if (!shell || !main || !pageContent) return
+
+    const updatePageHeaderTop = () => {
+      const mainRect = main.getBoundingClientRect()
+      const pageContentRect = pageContent.getBoundingClientRect()
+      const naturalTop = Math.max(pageContentRect.top - mainRect.top + main.scrollTop, 0)
+      const stickyTop = Math.max(naturalTop - main.scrollTop, 0)
+
+      shell.style.setProperty('--app-page-header-top', `${stickyTop}px`)
+      shell.dataset.pageHeaderDocked = stickyTop <= 0.5 ? 'true' : 'false'
+    }
+
+    const scheduleUpdate = () => {
+      if (frameRef.current != null) return
+
+      frameRef.current = window.requestAnimationFrame(() => {
+        frameRef.current = null
+        updatePageHeaderTop()
+      })
+    }
+
+    const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(scheduleUpdate) : null
+    resizeObserver?.observe(main)
+    resizeObserver?.observe(pageContent)
+
+    if (pageIntroRef.current) {
+      resizeObserver?.observe(pageIntroRef.current)
+    }
+
+    main.addEventListener('scroll', scheduleUpdate, { passive: true })
+    window.addEventListener('resize', scheduleUpdate)
+    scheduleUpdate()
+
+    return () => {
+      main.removeEventListener('scroll', scheduleUpdate)
+      window.removeEventListener('resize', scheduleUpdate)
+      resizeObserver?.disconnect()
+
+      if (frameRef.current != null) {
+        window.cancelAnimationFrame(frameRef.current)
+      }
+    }
+  }, [activeId, Boolean(pageIntro)])
 
   const navigation = (
     <div className="flex h-full flex-col rounded-[1.75rem] border border-border/70 bg-card/88 p-3 shadow-shell backdrop-blur-sm">
@@ -96,7 +152,11 @@ export function AppShell({
   )
 
   return (
-    <div className="min-h-screen bg-shell-gradient text-foreground">
+    <div
+      ref={shellRef}
+      className="h-screen overflow-hidden bg-shell-gradient text-foreground"
+      style={{ ['--app-page-header-top' as string]: '0px' } as React.CSSProperties}
+    >
       <header className="fixed inset-x-0 top-0 z-50 border-b border-border/60 bg-background/82 backdrop-blur-md">
         <div className="flex h-[var(--app-header-height)] items-center justify-between gap-3 px-4 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -150,7 +210,7 @@ export function AppShell({
         </div>
       </header>
 
-      <div className="pt-[var(--app-header-height)]">
+      <div className="h-full pt-[var(--app-header-height)]">
         <aside
           className="fixed bottom-0 left-0 top-[var(--app-header-height)] hidden p-4 lg:block"
           style={{ width: sidebarWidth }}
@@ -172,10 +232,15 @@ export function AppShell({
         ) : null}
 
         <main
-          className="min-h-[calc(100vh-var(--app-header-height))] overflow-y-auto px-4 pb-10 pt-5 lg:ml-[var(--app-shell-sidebar-width)] lg:px-6"
+          ref={mainRef}
+          className="h-[calc(100vh-var(--app-header-height))] overflow-y-auto px-4 pb-10 lg:ml-[var(--app-shell-sidebar-width)] lg:px-6"
           style={{ ['--app-shell-sidebar-width' as string]: sidebarWidth }}
         >
-          <div className="mx-auto w-full max-w-[var(--page-max-width)]">{children}</div>
+          <div className="mx-auto w-full max-w-[var(--page-max-width)] pt-5">
+            {pageIntro ? <div ref={pageIntroRef}>{pageIntro}</div> : null}
+            {pageIntro ? <div className="h-5" aria-hidden="true" /> : null}
+            <div ref={pageContentRef}>{children}</div>
+          </div>
         </main>
       </div>
     </div>

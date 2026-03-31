@@ -81,6 +81,8 @@ function AppInner() {
     },
   ]
 
+  const activeItem = nav.find((item) => item.id === active)
+
   return (
     <AppShell
       brand={t('app.topnav.title')}
@@ -97,14 +99,14 @@ function AppInner() {
       onNavigate={setActive}
       lang={lang}
       setLang={setLang}
-    >
-      <div className="space-y-5">
+      pageIntro={
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Layers className="h-4 w-4 text-primary" />
-          <span>{nav.find((item) => item.id === active)?.label}</span>
+          <span>{activeItem?.label}</span>
         </div>
-        {nav.find((item) => item.id === active)?.content}
-      </div>
+      }
+    >
+      {activeItem?.content}
     </AppShell>
   )
 }
