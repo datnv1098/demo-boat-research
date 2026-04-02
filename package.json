@@ -4,10 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "build:marine-admin": "node scripts/buildMarineAdminAdm1.mjs",
     "dev": "vite",
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:browser": "npm run build && playwright test",
+    "test:browser:headed": "npm run build && playwright test --headed"
   },
   "dependencies": {
     "@ant-design/plots": "^2.6.6",
@@ -22,6 +25,7 @@
     "apexcharts": "^5.3.5",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
+    "d3-delaunay": "^6.0.4",
     "express": "^5.2.1",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
@@ -35,6 +39,8 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.0",
+    "@types/d3-delaunay": "^6.0.4",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
